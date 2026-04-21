@@ -1,0 +1,85 @@
+/* login.css */
+
+.container {
+  display: flex;
+  height: 100vh;
+  background: #f3f3f3;
+  font-family: sans-serif;
+}
+
+/* LEFT PANEL */
+.left-panel {
+  width: 35%;
+  background: #0f7c78;
+  border-radius: 30px;
+  margin: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+.tab {
+  margin: 10px;
+  padding: 10px 30px;
+  border-radius: 30px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #eaeaea;
+  color: black;
+}
+
+/* RIGHT PANEL */
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px;
+}
+
+.right-panel h1 {
+  font-size: 32px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: gray;
+  margin-bottom: 30px;
+}
+
+/* INPUTS */
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 15px;
+  border-radius: 15px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+/* FORGOT */
+.forgot {
+  color: #0f7c78;
+  margin-bottom: 30px;
+  cursor: pointer;
+}
+
+/* BUTTON */
+.login-btn {
+  width: 60%;
+  padding: 15px;
+  border: none;
+  border-radius: 20px;
+  background: #0f7c78;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
