@@ -11,7 +11,7 @@ const styles = {
     minHeight: "100vh",
     fontFamily: "'Segoe UI', sans-serif",
     background: "#f5f5f5",
-    padding:"2em",
+    padding:"1em",
     boxSizing: "border-box" as const,
   },
   leftPanel: {
@@ -249,7 +249,7 @@ export default function LoginPage() {
           </div>
 
           {/* Forgot Password */}
-          <button style={styles.forgot}>FORGOT PASSWORD?</button>
+          <button style={styles.forgot} onClick={()=> navigation.navigate('/forgot-password')}>FORGOT PASSWORD?</button>
 
           {/* Login Button */}
           <button

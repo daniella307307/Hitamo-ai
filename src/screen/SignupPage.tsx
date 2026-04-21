@@ -11,7 +11,7 @@ const styles = {
     minHeight: "100vh",
     fontFamily: "'Segoe UI', sans-serif",
     background: "#f5f5f5",
-    padding: "2em",
+    padding: "1em",
     boxSizing: "border-box" as const,
   },
   leftPanel: {

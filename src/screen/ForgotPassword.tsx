@@ -6,21 +6,24 @@ const TEAL = "#1a8a7a";
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
 const page: CSSProperties = {
-  display: "flex",
-  minHeight: "100vh",
-  fontFamily: "'Segoe UI', sans-serif",
-  background: "#f5f5f5",
+   display: "flex",
+    minHeight: "100vh",
+    fontFamily: "'Segoe UI', sans-serif",
+    background: "#f5f5f5",
+    padding:"1em",
+    boxSizing: "border-box" as const,
 };
 
 const leftPanel: CSSProperties = {
-  width: "35%",
+  width: "30%",
   background: TEAL,
   display: "flex",
   flexDirection: "column",
-  alignItems: "flex-start",
+  alignItems: "center",
   justifyContent: "center",
   padding: "60px 0",
   position: "relative",
+  borderRadius: "30px 0 0 30px",
 };
 
 const leftContent: CSSProperties = {
@@ -40,6 +43,7 @@ const leftSubStyle: CSSProperties = {
   opacity: 0.8,
   maxWidth: "200px",
   lineHeight: 1.6,
+  
 };
 
 const illustrationStyle: CSSProperties = {
@@ -52,9 +56,10 @@ const rightPanel: CSSProperties = {
   flex: 1,
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
+  justifyContent: "flex-start",
   background: "#fff",
   padding: "40px",
+  borderRadius: "0 30px 30px 0",
 };
 
 const card: CSSProperties = {
@@ -415,7 +420,8 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
 
   const handleBack = (): void => {
     if (step === 0) {
-      onBack?.();
+        if (onBack) onBack();
+        navigation.navigate("/login");
     } else {
       setStep((s) => s - 1);
     }
