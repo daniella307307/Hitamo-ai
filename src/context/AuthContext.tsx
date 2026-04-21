@@ -13,7 +13,7 @@ interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<User>
   logout: () => void
-  register: (email: string, password: string, firstName: string, lastName: string) => Promise<User>
+  register: (firstName: string, lastName: string, email: string, password: string, phone: string) => Promise<User>
   passwordReset:(email: string) => Promise<void>
   resetPassword:(token: string, newPassword: string) => Promise<void>
   role: string | null
@@ -34,8 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData)
     return userData
   }
-  const register = async (email: string, password: string, firstName: string, lastName: string): Promise<User> => {
-    const userData = await authService.register(email, password, firstName, lastName)
+  const register = async (firstName: string, lastName: string, email: string, password: string, phone: string): Promise<User> => {
+    const userData = await authService.register(firstName, lastName, email, password)
     setUser(userData)
     return userData
   }

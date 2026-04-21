@@ -191,29 +191,50 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
-
   const handleSubmit = async () => {
-    const errors = { email: "", password: "", firstName: "", lastName: "", phone: "" };
-    if (!email) errors.email = "Email is required";
-    if (!password) errors.password = "Password is required";
-    if (!firstName) errors.firstName = "First Name is required";
-    if (!lastName) errors.lastName = "Last Name is required";
-    if (!phone) errors.phone = "Phone is required";
-    setFieldErrors(errors);
-    if (errors.email || errors.password) return;
+  const errors = { email: "", password: "", firstName: "", lastName: "", phone: "" };
 
-    setError("");
-    setLoading(true);
-    try {
-      // Replace with your auth logic
-      await register(email, password, firstName, lastName);
-      navigate("/dashboard"); // Redirect after successful signup
-    } catch {
-      setError("Invalid email or password");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!email) errors.email = "Email is required";
+  if (!password) errors.password = "Password is required";
+  if (!firstName) errors.firstName = "First Name is required";
+  if (!lastName) errors.lastName = "Last Name is required";
+  if (!phone) errors.phone = "Phone is required";
+
+  // 🔥 Add real validation
+  if (password.length < 8) {
+    errors.password = "Password must be at least 8 characters";
+  } else if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    errors.password = "Must include uppercase & number";
+  }
+
+  if (password !== confirmPassword) {
+    setError("Passwords do not match");
+    return;
+  }
+
+  setFieldErrors(errors);
+  if (Object.values(errors).some(Boolean)) return;
+
+  setError("");
+  setLoading(true);
+
+  try {
+    await register(
+      firstName.trim(),
+      lastName.trim(),
+      email.trim().toLowerCase(),
+      password,
+      phone.trim()
+    );
+
+    navigate("/dashboard");
+  } catch (err: any) {
+    console.log(err.response?.data);
+    setError(err.response?.data?.error?.message || "Registration failed");
+  } finally {
+    setLoading(false);
+  }
+};
   const checkPasswordStrength = (pwd: string) => {
     if (pwd.length < 6) return "Weak";
     if (pwd.length < 10) return "Medium";

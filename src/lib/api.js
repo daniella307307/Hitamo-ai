@@ -6,12 +6,29 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+const publicRoutes = [
+  "/auth/login",
+  "/auth/signup",
+  "/auth/forgot-password",
+];
 // ── Request interceptor: attach access token ──────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token && !publicRoutes.includes(config.url)) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(err);
+  }
+);
 
 // ── Response interceptor: auto-refresh on 401 ────────────────────
 let isRefreshing = false
