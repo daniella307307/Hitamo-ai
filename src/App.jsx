@@ -10,6 +10,8 @@ import HitamoAIPage from './screen/Hitamo'
 import Hire1 from './screen/Hire1'
 import DashboardCandidate from './screen/DashboardCandidate'
 import Profile from './screen/Profile'
+import Logout from './components/Logout'
+import { ProtectedRoute } from './components/ProtectedRoute'
 function App() {
   return (
     <Routes>
@@ -21,13 +23,16 @@ function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       
       {/* Dashboard and other protected routes will go here */}
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard" element={<ProtectedRoute>
+        <Dashboard/>
+      </ProtectedRoute>} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/analytics" element={<Analytics />} />
       <Route path="/hitamo-ai" element={<HitamoAIPage/>} />
       <Route path='/hire' element={<Hire1/>} />
       <Route path='/home' element={<DashboardCandidate/>} />
       <Route path='/profile' element={<Profile/>} />
+      <Route path='/logout' element={<Logout/>}/>
     </Routes>
   )
 }

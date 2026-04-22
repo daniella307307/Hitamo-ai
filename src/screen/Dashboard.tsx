@@ -3,6 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
+import { useAuth } from "../context/AuthContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ const TEAL_GLOW  = "rgba(32,178,160,0.20)";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NavItem = "Home" | "Analytics" | "Applications" | "Hitamo AI" | "Profile";
+type NavItem = "Home" | "Analytics" | "Applications" | "Hitamo AI" | "Profile" |"Logout";
 interface ChartDataPoint { month: string; applicants: number }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ const BellIcon         = () => <svg width="17" height="17" fill="none" stroke="#
 const DotsIcon         = () => <svg width="16" height="16" fill="#c0c7cc" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>;
 const SparkIcon        = () => <svg width="16" height="16" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>;
 const TrendFlatIcon    = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>;
-
+const LogoutIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 // ─── Gauge ────────────────────────────────────────────────────────────────────
 
 const Gauge = ({ value, max = 100 }: { value: number; max?: number }) => {
@@ -90,8 +91,9 @@ const NAV_ITEMS: { name: NavItem; icon: JSX.Element; link: string }[] = [
   { name: "Home",          icon: <HomeIcon />,          link: "/dashboard" },
   { name: "Analytics",    icon: <AnalyticsIcon />,    link: "/analytics" },
   { name: "Applications", icon: <ApplicationsIcon />, link: "/applications" },
-  { name: "Hitamo AI",    icon: <AIIcon />,            link: "/ai" },
+  { name: "Hitamo AI",    icon: <AIIcon />,            link: "/hire" },
   { name: "Profile",      icon: <ProfileIcon />,       link: "/profile" },
+  { name: "Logout", icon:<LogoutIcon/>, link:"/logout"}
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -101,7 +103,9 @@ export default function Dashboard() {
   const [ongoingCount]            = useState(0);
   const [totalApplicants]         = useState(0);
   const chartTotal                = chartData.reduce((s, d) => s + d.applicants, 0);
-
+  const { user } = useAuth();
+  const initial = user?.email.charAt(0).toUpperCase();
+  console.log(initial);
   return (
     <div style={{ display: "flex", height: "100vh", background: TEAL, fontFamily: "'DM Sans','Segoe UI',sans-serif", overflow: "hidden", borderRadius: 30 }}>
       <style>{`
@@ -122,8 +126,8 @@ export default function Dashboard() {
           H- <span style={{ fontWeight: 400, opacity: 0.7 }}>Hitamo AI</span>
         </div>
         <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", flex: 1 }}>
-          {NAV_ITEMS.map(({ name, icon }) => (
-            <button key={name} className="nav-btn" onClick={() => setActiveNav(name)} style={{
+          {NAV_ITEMS.map(({ name, icon,link }) => (
+            <button key={name} className="nav-btn" onClick={() => {setActiveNav(name); navigation.navigate(link)}} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, cursor: "pointer",
               background: activeNav === name ? "#fff" : "transparent",
               color: activeNav === name ? TEAL_DARK : "rgba(255,255,255,0.82)",
@@ -149,7 +153,7 @@ export default function Dashboard() {
               <BellIcon />
               <span style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: "#e53935", border: "1.5px solid #fff" }} />
             </div>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#f97316,#ef4444)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>DA</div>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#f97316,#ef4444)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{initial}</div>
           </div>
         </div>
 

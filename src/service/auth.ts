@@ -8,7 +8,13 @@ export const authService = {
 
     localStorage.setItem('access_token', access_token)
     localStorage.setItem('refresh_token', refresh_token)
-
+    localStorage.setItem('user', user);
+    console.log("role",user.role)
+    if (user.role === "CANDIDATE"){
+      navigation.navigate('/home');
+    }else{
+      navigation.navigate('/dashboard')
+    }
     return user  // { id, role: 'CANDIDATE' | 'RECRUITER' | 'ORG_OWNER' | 'ADMIN' }
   },
   async register(email: string, password: string, firstName: string, lastName: string) {
@@ -24,7 +30,7 @@ export const authService = {
 
   localStorage.setItem('access_token', tokens.accessToken);
   localStorage.setItem('refresh_token', tokens.refreshToken);
-
+  localStorage.setItem('user', user);
   return user;
 },
   async forgot(email:string) {
@@ -50,6 +56,18 @@ export const authService = {
     } finally {
       localStorage.clear()
       window.location.href = '/login'
+    }
+  },
+  async getProfile(){
+    try{
+      const response = await api.get('/auth/me');
+      if(!response){
+        this.logout();
+      }
+      const user = response.data;
+      return user;
+    }catch(err){
+      throw err;
     }
   },
 

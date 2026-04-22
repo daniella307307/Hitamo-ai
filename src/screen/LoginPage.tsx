@@ -187,8 +187,6 @@ export default function LoginPage() {
     try {
       // Replace with your auth logic
       await login(email, password);
-
-      navigate("/dashboard"); // Redirect after successful login
     } catch {
       setError("Invalid email or password");
     } finally {

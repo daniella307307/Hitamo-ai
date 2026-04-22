@@ -1,5 +1,6 @@
 import { useState } from "react";
-
+import { useAuth } from "../context/AuthContext";
+import Calendar from "../components/Calendar";
 // ── Types ──────────────────────────────────────────────────────────────
 interface Application {
   id: number;
@@ -82,6 +83,7 @@ const DotsIcon = () => (
   </div>
 );
 
+const LogoutIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 // ── Sub-components ─────────────────────────────────────────────────────
 
 function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
@@ -159,54 +161,7 @@ function TaskItem({ task, onToggle }: { task: Task; onToggle: () => void }) {
   );
 }
 
-function Calendar() {
-  const [month] = useState("Januari 2022");
-  const cells: (number | null)[] = [
-    ...Array(CAL_OFFSET).fill(null),
-    ...Array.from({ length: CAL_DAYS }, (_, i) => i + 1),
-  ];
 
-  return (
-    <div style={{ background: "white", borderRadius: 12, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "#202124", marginBottom: 12 }}>Calendar</div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#3c4043" }}>{month}</span>
-        <div style={{ display: "flex", gap: 4 }}>
-          {["‹", "›"].map((ch) => (
-            <button key={ch} style={{
-              width: 22, height: 22, border: "none", background: "none",
-              cursor: "pointer", color: "#9aa0a6", fontSize: 16,
-              display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4,
-            }}>{ch}</button>
-          ))}
-        </div>
-      </div>
-      {/* Day headers */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
-        {DAYS_HEADER.map((d) => (
-          <div key={d} style={{ fontSize: 10, fontWeight: 600, color: "#9aa0a6", textAlign: "center", padding: "2px 0", letterSpacing: "0.3px" }}>{d}</div>
-        ))}
-      </div>
-      {/* Day cells */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
-        {cells.map((day, i) => (
-          <div
-            key={i}
-            style={{
-              aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 12, borderRadius: "50%", cursor: day ? "pointer" : "default",
-              color: day === 1 ? "white" : "#3c4043",
-              background: day === 1 ? "#20b2a0" : "transparent",
-              fontWeight: day === 1 ? 700 : 400,
-            }}
-          >
-            {day ?? ""}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Main Dashboard ─────────────────────────────────────────────────────
 export default function DashboardCandidate() {
@@ -221,8 +176,11 @@ export default function DashboardCandidate() {
     { label: "Analytics", icon: <BarIcon />,link:'/analytics' },
     { label: "Hitamo AI", icon: <BotIcon />,link:'/hitamo-ai' },
     { label: "Profile", icon: <UserIcon />,link:'/profile' },
+    { label:"Logout", icon:<LogoutIcon/> , link:"/logout"}
   ];
-
+  const {user} = useAuth();
+  const initial = user?.email.charAt(0).toUpperCase();
+  console.log(initial)
   return (
     <div style={{
       fontFamily: "'DM Sans', sans-serif",
@@ -282,7 +240,7 @@ export default function DashboardCandidate() {
                 <div style={{ width: 8, height: 8, background: "#e53935", borderRadius: "50%", position: "absolute", top: 6, right: 6, border: "1.5px solid white" }} />
               </div>
               {/* Avatar */}
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #f97316, #ef4444)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>D</div>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #f97316, #ef4444)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{initial}</div>
             </div>
           </div>
 
@@ -336,7 +294,7 @@ export default function DashboardCandidate() {
 
             {/* Right column — Calendar */}
             <div>
-              <Calendar />
+              <Calendar/>
             </div>
 
           </div>

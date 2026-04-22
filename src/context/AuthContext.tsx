@@ -4,9 +4,9 @@ import { authService } from '../service/auth.ts'
 
 // Define types
 interface User {
+  name:string;
   email: string
   role: 'CANDIDATE' | 'RECRUITER' | 'ORG_OWNER' | 'ADMIN'
-  // Add other user properties as needed
 }
 
 interface AuthContextType {
@@ -16,6 +16,7 @@ interface AuthContextType {
   register: (firstName: string, lastName: string, email: string, password: string, phone: string) => Promise<User>
   passwordReset:(email: string) => Promise<void>
   resetPassword:(token: string, newPassword: string) => Promise<void>
+  getProfile:(token:string)=>Promise<void>
   role: string | null
   isCandidate: boolean
   isRecruiter: boolean
@@ -52,6 +53,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authService.resetpassword(token, newPassword)
     setUser(null)
   }
+  const getProfile = async(token:string):Promise<void>=>{
+    const userData = await authService.getProfile();
+    setUser(userData);
+  }
 
   const isCandidate = role === 'CANDIDATE'
   const isRecruiter = role === 'RECRUITER'
@@ -59,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = role === 'ADMIN'
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, role, isCandidate, isRecruiter, isOrgOwner, isAdmin, passwordReset, resetPassword }}>
+    <AuthContext.Provider value={{ user, login, register, logout, role, isCandidate, isRecruiter, isOrgOwner,getProfile, isAdmin, passwordReset, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )

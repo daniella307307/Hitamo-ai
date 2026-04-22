@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authService } from "../service/auth";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface Skill {
@@ -274,7 +275,13 @@ export default function Profile() {
     { label: "Hitamo AI", icon: <BotIcon />,link:'/hitamo-ai' },
     { label: "Profile", icon: <UserIcon />, link: "/profile" },
   ];
-
+  const handleLogout = async ()=>{
+    try {
+      await authService.logout();
+    } catch (error) {
+      throw error;
+    }
+  }
   const availColor = profile.availabilityStatus === "available" ? "#16a34a" : profile.availabilityStatus === "open" ? "#d97706" : "#dc2626";
   const availBg   = profile.availabilityStatus === "available" ? "#dcfce7" : profile.availabilityStatus === "open" ? "#fef3c7" : "#fee2e2";
   const availLabel = profile.availabilityStatus === "available" ? "Available" : profile.availabilityStatus === "open" ? "Open to offers" : "Not available";
@@ -330,6 +337,9 @@ export default function Profile() {
                     <a href={profile.resumeUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "#1a7a6e", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
                       <DownloadIcon /> Resume
                     </a>
+                    <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8,borderColor:"red", background: "#dc3654", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                    Logout
+                    </button>
                   </div>
                 </div>
 

@@ -191,23 +191,38 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
-  const handleSubmit = async () => {
-  const errors = { email: "", password: "", firstName: "", lastName: "", phone: "" };
+ const handleSubmit = async () => {
+  const errors = {
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
+  };
 
-  if (!email) errors.email = "Email is required";
-  if (!password) errors.password = "Password is required";
-  if (!firstName) errors.firstName = "First Name is required";
-  if (!lastName) errors.lastName = "Last Name is required";
-  if (!phone) errors.phone = "Phone is required";
+  // 🔹 Basic required checks
+  if (!firstName.trim()) errors.firstName = "First Name is required";
+  if (!lastName.trim()) errors.lastName = "Last Name is required";
+  if (!email.trim()) errors.email = "Email is required";
+  if (!password.trim()) errors.password = "Password is required";
+  if (!phone.trim()) errors.phone = "Phone is required";
 
-  // 🔥 Add real validation
-  if (password.length < 8) {
-    errors.password = "Password must be at least 8 characters";
-  } else if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-    errors.password = "Must include uppercase & number";
+  // 🔹 Email format
+  const cleanEmail = email.trim().toLowerCase();
+  if (cleanEmail && !/\S+@\S+\.\S+/.test(cleanEmail)) {
+    errors.email = "Invalid email format";
   }
 
-  if (password !== confirmPassword) {
+  // 🔹 Password validation (matches backend rules)
+  const cleanPassword = password.trim();
+  if (cleanPassword.length < 8) {
+    errors.password = "Password must be at least 8 characters";
+  } else if (!/[A-Z]/.test(cleanPassword) || !/[0-9]/.test(cleanPassword)) {
+    errors.password = "Must include uppercase letter and number";
+  }
+
+  // 🔹 Confirm password
+  if (cleanPassword !== confirmPassword.trim()) {
     setError("Passwords do not match");
     return;
   }
@@ -215,22 +230,49 @@ export default function SignupPage() {
   setFieldErrors(errors);
   if (Object.values(errors).some(Boolean)) return;
 
-  setError("");
+  // 🔹 Format phone to international (+250...)
+  let formattedPhone = phone.trim();
+  if (!formattedPhone.startsWith("+")) {
+    if (formattedPhone.startsWith("0")) {
+      formattedPhone = "+250" + formattedPhone.slice(1);
+    }
+  }
+
+  // 🔹 Build payload (TRY THIS FORMAT FIRST)
+  const payload = {
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    email: cleanEmail,
+    password: cleanPassword,
+    phoneNumber: formattedPhone,
+  };
+
+  console.log("FINAL PAYLOAD:", payload);
+
   setLoading(true);
+  setError("");
 
   try {
     await register(
-      firstName.trim(),
-      lastName.trim(),
-      email.trim().toLowerCase(),
-      password,
-      phone.trim()
+      payload.firstName,
+      payload.lastName,
+      payload.email,
+      payload.password,
+      payload.phoneNumber
     );
 
-    navigate("/dashboard");
+    navigation.navigate("/dashboard");
   } catch (err: any) {
-    console.log(err.response?.data);
-    setError(err.response?.data?.error?.message || "Registration failed");
+    console.log("FULL ERROR:", err);
+
+    const details = err?.response?.data?.error?.details;
+
+    if (details) {
+      const messages = details.map((d: any) => d.message).join(", ");
+      setError(messages);
+    } else {
+      setError("Registration failed");
+    }
   } finally {
     setLoading(false);
   }

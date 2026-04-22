@@ -1,4 +1,6 @@
 import { useState, CSSProperties } from "react";
+import toast from "react-hot-toast";
+import { jobService, type EmploymentType } from "../service/job";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,8 +24,14 @@ interface Step1Data {
 interface Step2Data {
   position: string;
   jobDesc: string;
+  responsibilities: string;
   qualifications: string;
-  qualities: string;
+  skills: string;
+  employmentType: EmploymentType;
+  isRemote: boolean;
+  salaryMin: string;
+  salaryMax: string;
+  currency: string;
 }
 
 interface Step3Data {
@@ -37,6 +45,8 @@ interface Step4Data {
   interview: boolean;
   deadline: string;
   slots: number;
+  pipelineStages: string;
+  aiCriteria: string;
   notes: string;
 }
 
@@ -50,6 +60,48 @@ const STEPS = [
 ];
 
 const DOCS = ["CV", "Resume", "Portfolio", "Cover letter"];
+const EMPLOYMENT_TYPES: EmploymentType[] = [
+  "full-time",
+  "part-time",
+  "contract",
+  "internship",
+];
+const CURRENCIES = ["USD", "RWF", "KES", "UGX", "TZS"];
+
+const splitEntries = (value: string): string[] =>
+  value
+    .split(/\r?\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const buildJobPayload = (
+  step1: Step1Data,
+  step2: Step2Data,
+  step3: Step3Data,
+  step4: Step4Data
+) => ({
+  title: step2.position.trim(),
+  description: step2.jobDesc.trim(),
+  requirements: [
+    ...splitEntries(step2.qualifications),
+    ...step3.docs.map((doc) => `${doc} required`),
+    ...splitEntries(step3.extraInfo),
+  ],
+  responsibilities: splitEntries(step2.responsibilities),
+  skills: splitEntries(step2.skills),
+  location: [step1.district, step1.province, step1.country].filter(Boolean).join(", "),
+  isRemote: step2.isRemote,
+  employmentType: step2.employmentType,
+  salaryMin: step2.salaryMin ? Number(step2.salaryMin) : undefined,
+  salaryMax: step2.salaryMax ? Number(step2.salaryMax) : undefined,
+  currency: step2.currency,
+  applicationDeadline: step4.deadline || undefined,
+  aiScreeningEnabled: step4.interview,
+  aiScreeningCriteria: step4.interview
+    ? step4.aiCriteria.trim() || undefined
+    : undefined,
+  pipelineStages: splitEntries(step4.pipelineStages),
+});
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -90,7 +142,7 @@ const BigCheckIcon = () => (
     <path d="M20 6L9 17l-5-5" />
   </svg>
 );
-
+const LogoutIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const fieldLabel: CSSProperties = {
@@ -307,6 +359,57 @@ const FooterButtons = ({
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
+const SubmitFooterButtons = ({
+  onBack,
+  onNext,
+  nextLabel,
+  disabled,
+}: {
+  onBack: () => void;
+  onNext: () => void;
+  nextLabel: string;
+  disabled: boolean;
+}) => (
+  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+    <button
+      onClick={onBack}
+      disabled={disabled}
+      style={{
+        background: "#fff",
+        color: "#5a7874",
+        border: "1.5px solid #dce8e6",
+        borderRadius: "10px",
+        padding: "11px 22px",
+        fontSize: "13px",
+        fontWeight: 600,
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontFamily: "'DM Sans', sans-serif",
+        opacity: disabled ? 0.65 : 1,
+      }}
+    >
+      Back
+    </button>
+    <button
+      onClick={onNext}
+      disabled={disabled}
+      style={{
+        background: TEAL_DARK,
+        color: "#fff",
+        border: "none",
+        borderRadius: "10px",
+        padding: "11px 32px",
+        fontSize: "13px",
+        fontWeight: 700,
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontFamily: "'DM Sans', sans-serif",
+        opacity: disabled ? 0.65 : 1,
+      }}
+    >
+      {nextLabel}
+    </button>
+  </div>
+);
+
 const Sidebar = ({ current }: { current: number }) => (
   <aside style={{
     width: "214px", flexShrink: 0, background: TEAL,
@@ -318,7 +421,7 @@ const Sidebar = ({ current }: { current: number }) => (
       borderBottom: "1px solid rgba(255,255,255,0.13)",
       letterSpacing: "-0.3px",
     }}>
-      H— <span style={{ fontWeight: 400, opacity: 0.6 }}>Hitamo AI</span>
+     <button onClick={()=>{}}> H— <span style={{ fontWeight: 400, opacity: 0.6 }}>Hitamo AI</span></button>
     </div>
     <div style={{
       fontSize: "10px", fontWeight: 700, letterSpacing: "1px",
@@ -457,8 +560,32 @@ const Step2 = ({ data, onChange, onBack, onNext }: {
     <FieldGroup label="Position title">
       <TextInput placeholder="e.g. Senior Product Designer" value={data.position} onChange={(v) => onChange({ ...data, position: v })} />
     </FieldGroup>
+    <div style={grid2}>
+      <FieldGroup label="Employment type">
+        <SelectInput
+          value={data.employmentType}
+          onChange={(v) => onChange({ ...data, employmentType: v as EmploymentType })}
+          options={EMPLOYMENT_TYPES}
+        />
+      </FieldGroup>
+      <FieldGroup label="Work setup">
+        <SelectInput
+          value={data.isRemote ? "Remote" : "On-site"}
+          onChange={(v) => onChange({ ...data, isRemote: v === "Remote" })}
+          options={["On-site", "Remote"]}
+        />
+      </FieldGroup>
+    </div>
     <FieldGroup label="Job description">
       <TextArea placeholder="Describe the key responsibilities and day-to-day tasks for this role..." value={data.jobDesc} onChange={(v) => onChange({ ...data, jobDesc: v })} rows={4} />
+    </FieldGroup>
+    <FieldGroup label="Responsibilities">
+      <TextArea
+        placeholder="List each responsibility on a new line or separate them with commas..."
+        value={data.responsibilities}
+        onChange={(v) => onChange({ ...data, responsibilities: v })}
+        rows={4}
+      />
     </FieldGroup>
 
     <div style={divider} />
@@ -467,9 +594,41 @@ const Step2 = ({ data, onChange, onBack, onNext }: {
     <FieldGroup label="Required qualifications">
       <TextArea placeholder="e.g. BSc in Computer Science, 3+ years experience..." value={data.qualifications} onChange={(v) => onChange({ ...data, qualifications: v })} />
     </FieldGroup>
-    <FieldGroup label="Desired personal qualities">
-      <TextArea placeholder="e.g. Collaborative, growth mindset, strong communicator..." value={data.qualities} onChange={(v) => onChange({ ...data, qualities: v })} rows={2} />
+    <FieldGroup label="Required skills">
+      <TextArea
+        placeholder="e.g. React, Figma, stakeholder management..."
+        value={data.skills}
+        onChange={(v) => onChange({ ...data, skills: v })}
+        rows={2}
+      />
     </FieldGroup>
+    <div style={grid2}>
+      <FieldGroup label="Salary minimum">
+        <TextInput
+          type="number"
+          placeholder="e.g. 1200"
+          value={data.salaryMin}
+          onChange={(v) => onChange({ ...data, salaryMin: v })}
+        />
+      </FieldGroup>
+      <FieldGroup label="Salary maximum">
+        <TextInput
+          type="number"
+          placeholder="e.g. 2500"
+          value={data.salaryMax}
+          onChange={(v) => onChange({ ...data, salaryMax: v })}
+        />
+      </FieldGroup>
+    </div>
+    <div style={{ width: "calc(50% - 6px)" }}>
+      <FieldGroup label="Currency">
+        <SelectInput
+          value={data.currency}
+          onChange={(v) => onChange({ ...data, currency: v })}
+          options={CURRENCIES}
+        />
+      </FieldGroup>
+    </div>
 
     <FooterButtons onBack={onBack} onNext={onNext} />
   </div>
@@ -552,11 +711,12 @@ const Step3 = ({ data, onChange, onBack, onNext }: {
 
 // ─── Step 4 ───────────────────────────────────────────────────────────────────
 
-const Step4 = ({ data, onChange, onBack, onSubmit }: {
+const Step4 = ({ data, onChange, onBack, onSubmit, isSubmitting }: {
   data: Step4Data;
   onChange: (d: Step4Data) => void;
   onBack: () => void;
   onSubmit: () => void;
+  isSubmitting: boolean;
 }) => {
   const RadioOption = ({
     value,
@@ -640,11 +800,34 @@ const Step4 = ({ data, onChange, onBack, onSubmit }: {
           />
         </FieldGroup>
       </div>
+      <FieldGroup label="Pipeline stages">
+        <TextArea
+          placeholder="e.g. Application Review, Technical Interview, Final Interview..."
+          value={data.pipelineStages}
+          onChange={(v) => onChange({ ...data, pipelineStages: v })}
+          rows={3}
+        />
+      </FieldGroup>
+      {data.interview && (
+        <FieldGroup label="AI screening criteria">
+          <TextArea
+            placeholder="Describe what the AI interview should evaluate..."
+            value={data.aiCriteria}
+            onChange={(v) => onChange({ ...data, aiCriteria: v })}
+            rows={3}
+          />
+        </FieldGroup>
+      )}
       <FieldGroup label="Internal notes">
         <TextArea placeholder="Optional notes visible only to your hiring team..." value={data.notes} onChange={(v) => onChange({ ...data, notes: v })} rows={2} />
       </FieldGroup>
 
-      <FooterButtons onBack={onBack} onNext={onSubmit} nextLabel="Publish process" isSubmit />
+      <SubmitFooterButtons
+        onBack={onBack}
+        onNext={onSubmit}
+        nextLabel={isSubmitting ? "Publishing..." : "Publish process"}
+        disabled={isSubmitting}
+      />
     </div>
   );
 };
@@ -691,26 +874,119 @@ const SuccessScreen = ({ positionName, onReset }: { positionName: string; onRese
 export default function Hire() {
   const [step, setStep] = useState<number>(1);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [step1, setStep1] = useState<Step1Data>({
     country: "Rwanda", province: "Gasabo", district: "Gasabo",
     vision: "", mission: "",
   });
   const [step2, setStep2] = useState<Step2Data>({
-    position: "", jobDesc: "", qualifications: "", qualities: "",
+    position: "",
+    jobDesc: "",
+    responsibilities: "",
+    qualifications: "",
+    skills: "",
+    employmentType: "full-time",
+    isRemote: false,
+    salaryMin: "",
+    salaryMax: "",
+    currency: "USD",
   });
   const [step3, setStep3] = useState<Step3Data>({
-    extraInfo: "", docs: ["Resume", "Cover Letters"],
+    extraInfo: "", docs: ["Resume", "Cover letter"],
     linkedin: true, github: true,
   });
   const [step4, setStep4] = useState<Step4Data>({
-    interview: true, deadline: "", slots: 1, notes: "",
+    interview: true,
+    deadline: "",
+    slots: 1,
+    pipelineStages: "Application Review\nHiring Team Review",
+    aiCriteria: "",
+    notes: "",
   });
 
   const scrollStyle: CSSProperties = {
     flex: 1,
     overflowY: "auto",
     padding: "20px 22px 24px",
+  };
+
+  const handlePublish = async () => {
+    const payload = buildJobPayload(step1, step2, step3, step4);
+    const salaryMin = payload.salaryMin;
+    const salaryMax = payload.salaryMax;
+
+    if (!payload.title) {
+      toast.error("Position title is required.");
+      setStep(2);
+      return;
+    }
+
+    if (!payload.description) {
+      toast.error("Job description is required.");
+      setStep(2);
+      return;
+    }
+
+    if (!payload.responsibilities.length) {
+      toast.error("Add at least one responsibility.");
+      setStep(2);
+      return;
+    }
+
+    if (!payload.requirements.length) {
+      toast.error("Add at least one qualification or requirement.");
+      setStep(3);
+      return;
+    }
+
+    if (!payload.skills.length) {
+      toast.error("Add at least one skill.");
+      setStep(2);
+      return;
+    }
+
+    if (!payload.pipelineStages.length) {
+      toast.error("Add at least one pipeline stage.");
+      setStep(4);
+      return;
+    }
+
+    if (Number.isNaN(salaryMin) || Number.isNaN(salaryMax)) {
+      toast.error("Salary fields must be valid numbers.");
+      setStep(2);
+      return;
+    }
+
+    if (
+      typeof salaryMin === "number" &&
+      typeof salaryMax === "number" &&
+      salaryMin > salaryMax
+    ) {
+      toast.error("Salary minimum cannot be greater than salary maximum.");
+      setStep(2);
+      return;
+    }
+
+    if (payload.aiScreeningEnabled && !payload.aiScreeningCriteria) {
+      toast.error("Add AI screening criteria or switch off AI screening.");
+      setStep(4);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await jobService.createJob(payload);
+      toast.success("Hiring process published successfully.");
+      setSubmitted(true);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to publish hiring process.";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -753,7 +1029,13 @@ export default function Hire() {
               <Step3 data={step3} onChange={setStep3} onBack={() => setStep(2)} onNext={() => setStep(4)} />
             )}
             {step === 4 && (
-              <Step4 data={step4} onChange={setStep4} onBack={() => setStep(3)} onSubmit={() => setSubmitted(true)} />
+              <Step4
+                data={step4}
+                onChange={setStep4}
+                onBack={() => setStep(3)}
+                onSubmit={handlePublish}
+                isSubmitting={isSubmitting}
+              />
             )}
           </div>
         )}
