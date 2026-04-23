@@ -1,19 +1,12 @@
 // src/context/AuthContext.tsx
 import React, { createContext, useState } from 'react'
-import { authService } from '../service/auth.ts'
-
-// Define types
-interface User {
-  name:string;
-  email: string
-  role: 'CANDIDATE' | 'RECRUITER' | 'ORG_OWNER' | 'ADMIN'
-}
+import { authService, type AuthUser } from '../service/auth.ts'
 
 interface AuthContextType {
-  user: User | null
-  login: (email: string, password: string) => Promise<User>
+  user: AuthUser | null
+  login: (email: string, password: string) => Promise<AuthUser>
   logout: () => void
-  register: (firstName: string, lastName: string, email: string, password: string, phone: string) => Promise<User>
+  register: (firstName: string, lastName: string, email: string, password: string, phone: string) => Promise<AuthUser>
   passwordReset:(email: string) => Promise<void>
   resetPassword:(token: string, newPassword: string) => Promise<void>
   getProfile:(token:string)=>Promise<void>
@@ -27,16 +20,16 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(() => authService.getStoredUser())
   const role = user?.role ?? null
 
-  const login = async (email: string, password: string): Promise<User> => {
+  const login = async (email: string, password: string): Promise<AuthUser> => {
     const userData = await authService.login(email, password)
     setUser(userData)
     return userData
   }
-  const register = async (firstName: string, lastName: string, email: string, password: string, phone: string): Promise<User> => {
-    const userData = await authService.register(firstName, lastName, email, password)
+  const register = async (firstName: string, lastName: string, email: string, password: string, phone: string): Promise<AuthUser> => {
+    const userData = await authService.register(firstName, lastName, email, password, phone)
     setUser(userData)
     return userData
   }

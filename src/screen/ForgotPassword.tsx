@@ -1,17 +1,16 @@
-import { KeyboardEvent, useState, CSSProperties } from "react";
+import { useState, CSSProperties } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const TEAL = "#1a8a7a";
 
-// ─── Style helpers ────────────────────────────────────────────────────────────
-
 const page: CSSProperties = {
-   display: "flex",
-    minHeight: "100vh",
-    fontFamily: "'Segoe UI', sans-serif",
-    background: "#f5f5f5",
-    padding:"1em",
-    boxSizing: "border-box" as const,
+  display: "flex",
+  minHeight: "100vh",
+  fontFamily: "'Segoe UI', sans-serif",
+  background: "#f5f5f5",
+  padding: "1em",
+  boxSizing: "border-box" as const,
 };
 
 const leftPanel: CSSProperties = {
@@ -41,9 +40,8 @@ const leftTitleStyle: CSSProperties = {
 const leftSubStyle: CSSProperties = {
   fontSize: "15px",
   opacity: 0.8,
-  maxWidth: "200px",
+  maxWidth: "220px",
   lineHeight: 1.6,
-  
 };
 
 const illustrationStyle: CSSProperties = {
@@ -142,27 +140,6 @@ const inputStyle: CSSProperties = {
   color: "#333",
 };
 
-const otpRow: CSSProperties = {
-  display: "flex",
-  gap: "12px",
-  justifyContent: "center",
-  marginBottom: "8px",
-};
-
-const otpInput = (focused: boolean): CSSProperties => ({
-  width: "56px",
-  height: "64px",
-  textAlign: "center",
-  fontSize: "22px",
-  fontWeight: 700,
-  border: `2px solid ${focused ? TEAL : "#ddd"}`,
-  borderRadius: "14px",
-  background: "#fafafa",
-  outline: "none",
-  color: "#111",
-  transition: "border-color 0.2s",
-});
-
 const resendStyle: CSSProperties = {
   textAlign: "center",
   fontSize: "13px",
@@ -217,8 +194,6 @@ const successIcon: CSSProperties = {
   margin: "0 auto 24px",
 };
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
-
 const ArrowLeft = () => (
   <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
     <path d="M19 12H5M5 12l7-7M5 12l7 7" />
@@ -269,31 +244,44 @@ const CheckIcon = () => (
   </svg>
 );
 
-// ─── Left panel illustration ──────────────────────────────────────────────────
+const KeyIcon = () => (
+  <svg width="18" height="18" fill="none" stroke="#bbb" strokeWidth="1.8" viewBox="0 0 24 24">
+    <circle cx="8" cy="15" r="4" />
+    <path d="M12 15h10" />
+    <path d="M18 15v-3" />
+    <path d="M21 15v-2" />
+  </svg>
+);
 
 interface LeftIllustrationProps {
   step: number;
 }
 
 const LeftIllustration = ({ step }: LeftIllustrationProps) => {
-  if (step === 0) return (
-    <svg viewBox="0 0 160 160" style={illustrationStyle}>
-      <circle cx="80" cy="80" r="60" fill="rgba(255,255,255,0.1)" />
-      <rect x="40" y="55" width="80" height="60" rx="8" fill="rgba(255,255,255,0.2)" />
-      <path d="M40 65l40 28 40-28" stroke="#fff" strokeWidth="2" fill="none" />
-      <circle cx="80" cy="40" r="14" fill="rgba(255,255,255,0.25)" />
-      <path d="M74 40l4 4 8-8" stroke="#fff" strokeWidth="2" fill="none" />
-    </svg>
-  );
-  if (step === 1) return (
-    <svg viewBox="0 0 160 160" style={illustrationStyle}>
-      <circle cx="80" cy="80" r="60" fill="rgba(255,255,255,0.1)" />
-      {[0, 1, 2, 3].map((i) => (
-        <rect key={i} x={28 + i * 28} y="62" width="20" height="36" rx="6" fill="rgba(255,255,255,0.25)" />
-      ))}
-      <path d="M50 100 Q80 120 110 100" stroke="#fff" strokeWidth="1.5" fill="none" opacity="0.5" />
-    </svg>
-  );
+  if (step === 0) {
+    return (
+      <svg viewBox="0 0 160 160" style={illustrationStyle}>
+        <circle cx="80" cy="80" r="60" fill="rgba(255,255,255,0.1)" />
+        <rect x="40" y="55" width="80" height="60" rx="8" fill="rgba(255,255,255,0.2)" />
+        <path d="M40 65l40 28 40-28" stroke="#fff" strokeWidth="2" fill="none" />
+        <circle cx="80" cy="40" r="14" fill="rgba(255,255,255,0.25)" />
+        <path d="M74 40l4 4 8-8" stroke="#fff" strokeWidth="2" fill="none" />
+      </svg>
+    );
+  }
+
+  if (step === 1) {
+    return (
+      <svg viewBox="0 0 160 160" style={illustrationStyle}>
+        <circle cx="80" cy="80" r="60" fill="rgba(255,255,255,0.1)" />
+        <circle cx="65" cy="82" r="20" fill="rgba(255,255,255,0.18)" />
+        <circle cx="97" cy="82" r="20" fill="rgba(255,255,255,0.28)" />
+        <path d="M60 82h42" stroke="#fff" strokeWidth="4" />
+        <path d="M84 82l7-7" stroke="#fff" strokeWidth="4" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 160 160" style={illustrationStyle}>
       <circle cx="80" cy="80" r="60" fill="rgba(255,255,255,0.1)" />
@@ -306,30 +294,13 @@ const LeftIllustration = ({ step }: LeftIllustrationProps) => {
   );
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+const STEPS = [{ label: "Email" }, { label: "Token" }, { label: "Reset" }];
 
-interface StepMeta {
-  label: string;
-}
-
-const STEPS: StepMeta[] = [
-  { label: "Email" },
-  { label: "OTP" },
-  { label: "Reset" },
+const LEFT_COPY = [
+  { title: "Forgot Your\nPassword?", sub: "Enter your email and we'll send you a reset token." },
+  { title: "Check Your\nInbox", sub: "Paste the reset token from your email to continue." },
+  { title: "Almost\nThere!", sub: "Create a new strong password to secure your account." },
 ];
-
-interface LeftCopy {
-  title: string;
-  sub: string;
-}
-
-const LEFT_COPY: LeftCopy[] = [
-  { title: "Forgot Your\nPassword?", sub: "No worries! Enter your email and we'll send you a reset code." },
-  { title: "Check Your\nInbox",       sub: "We've sent a 4-digit code to your email address." },
-  { title: "Almost\nThere!",          sub: "Create a new strong password to secure your account." },
-];
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 interface ForgotPasswordPageProps {
   onBack?: () => void;
@@ -341,102 +312,106 @@ interface FieldErrors {
 }
 
 export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
-  const [step, setStep]                   = useState<number>(0);
-  const [email, setEmail]                 = useState<string>("");
-  const [emailFocused, setEmailFocused]   = useState<boolean>(false);
-  const [emailError, setEmailError]       = useState<string>("");
-
-  const [otp, setOtp]                     = useState<string[]>(["", "", "", ""]);
-  const [otpFocused, setOtpFocused]       = useState<number>(-1);
-  const [otpError, setOtpError]           = useState<string>("");
-
-  const [newPassword, setNewPassword]         = useState<string>("");
+  const [step, setStep] = useState<number>(0);
+  const [email, setEmail] = useState<string>("");
+  const [emailFocused, setEmailFocused] = useState<boolean>(false);
+  const [emailError, setEmailError] = useState<string>("");
+  const [token, setToken] = useState<string>("");
+  const [tokenFocused, setTokenFocused] = useState<boolean>(false);
+  const [tokenError, setTokenError] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
-  const [showNew, setShowNew]                 = useState<boolean>(false);
-  const [showConfirm, setShowConfirm]         = useState<boolean>(false);
-  const [pwFocused, setPwFocused]             = useState<string>("");
-  const [pwErrors, setPwErrors]               = useState<FieldErrors>({ new: "", confirm: "" });
-  const { passwordReset , resetPassword} = useAuth();
+  const [showNew, setShowNew] = useState<boolean>(false);
+  const [showConfirm, setShowConfirm] = useState<boolean>(false);
+  const [pwFocused, setPwFocused] = useState<string>("");
+  const [pwErrors, setPwErrors] = useState<FieldErrors>({ new: "", confirm: "" });
+  const { passwordReset, resetPassword } = useAuth();
   const [loading, setLoading] = useState<boolean>(false);
-  const [done, setDone]       = useState<boolean>(false);
+  const [done, setDone] = useState<boolean>(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // Step 0 – send OTP
-  const handleSendOtp = async (): Promise<void> => {
+  const tokenFromUrl = searchParams.get("token") ?? "";
+  const activeToken = tokenFromUrl || token;
+
+  const handleSendReset = async (): Promise<void> => {
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
       setEmailError("Please enter a valid email address");
       return;
     }
-    
+
     setEmailError("");
     setLoading(true);
-    const response = await passwordReset(email);
-    localStorage.setItem('ver', email); // Store email as verification token for demo purposes
-    setLoading(false);
-    setStep(1);
+
+    try {
+      await passwordReset(email);
+      setStep(tokenFromUrl ? 2 : 1);
+    } catch {
+      setEmailError("We couldn't send the reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Step 1 – verify OTP
-  const handleVerifyOtp = async (): Promise<void> => {
-    if (otp.some((d) => d === "")) {
-      setOtpError("Please enter the full 4-digit code");
+  const handleContinueWithToken = (): void => {
+    if (!activeToken.trim()) {
+      setTokenError("Please enter the reset token from your email");
       return;
     }
-    setOtpError("");
-    setLoading(true);
-    await new Promise<void>((r) => setTimeout(r, 1000)); // Simulate API call
-    setLoading(false);
+
+    setTokenError("");
     setStep(2);
   };
 
-  const handleOtpChange = (val: string, idx: number): void => {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...otp];
-    next[idx] = val;
-    setOtp(next);
-    if (val && idx < 3) {
-      (document.getElementById(`otp-${idx + 1}`) as HTMLInputElement | null)?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (e: KeyboardEvent<HTMLInputElement>, idx: number): void => {
-    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
-      (document.getElementById(`otp-${idx - 1}`) as HTMLInputElement | null)?.focus();
-    }
-  };
-
-  // Step 2 – reset password
   const handleReset = async (): Promise<void> => {
     const errors: FieldErrors = { new: "", confirm: "" };
+
+    if (!activeToken.trim()) {
+      setTokenError("Reset token is required");
+    } else {
+      setTokenError("");
+    }
+
     if (newPassword.length < 8) errors.new = "Password must be at least 8 characters";
     if (newPassword !== confirmPassword) errors.confirm = "Passwords do not match";
+
     setPwErrors(errors);
-    if (errors.new || errors.confirm) return;
+    if (!activeToken.trim() || errors.new || errors.confirm) return;
+
     setLoading(true);
-    const ver = localStorage.getItem('ver') || '';
-    await resetPassword(ver, newPassword);
-    setLoading(false);
-    setDone(true);
+
+    try {
+      await resetPassword(activeToken.trim(), newPassword);
+      setDone(true);
+    } catch {
+      setTokenError("That reset token is invalid or expired");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = (): void => {
     if (step === 0) {
-        if (onBack) onBack();
-        navigation.navigate("/login");
-    } else {
-      setStep((s) => s - 1);
+      onBack?.();
+      navigate("/login");
+      return;
     }
+
+    setStep((currentStep) => currentStep - 1);
   };
 
-  const copy: LeftCopy = LEFT_COPY[step];
+  const copy = LEFT_COPY[step];
 
   return (
     <div style={page}>
-      {/* LEFT PANEL */}
       <div style={leftPanel}>
         <div style={leftContent}>
           <p style={leftTitleStyle}>
             {copy.title.split("\n").map((line, i) => (
-              <span key={i}>{line}<br /></span>
+              <span key={i}>
+                {line}
+                <br />
+              </span>
             ))}
           </p>
           <p style={leftSubStyle}>{copy.sub}</p>
@@ -444,29 +419,24 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
       <div style={rightPanel}>
         <div style={card}>
-
-          {/* Back button */}
           <button style={backBtnStyle} onClick={handleBack}>
             <ArrowLeft />
             {step === 0 ? "Back to Login" : "Go Back"}
           </button>
 
-          {/* Step indicator */}
           <div style={stepIndicatorStyle}>
             {STEPS.map((_, i) => (
               <div key={i} style={dot(i === step, i < step)} />
             ))}
           </div>
 
-          {/* ── STEP 0: Email ── */}
           {step === 0 && !done && (
             <>
               <h1 style={titleStyle}>Reset Password</h1>
               <p style={subtitleStyle}>
-                Enter the email associated with your account and we'll send a verification code.
+                Enter the email associated with your account and we'll send a reset token.
               </p>
 
               <div style={fieldGroup}>
@@ -475,73 +445,90 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
                   <input
                     style={inputStyle}
                     type="email"
-                    placeholder="danieaa@gmail.com"
+                    placeholder="user@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleSendOtp(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSendReset();
+                    }}
                   />
                   <MailIcon />
                 </div>
                 {emailError && <p style={errorStyle}>{emailError}</p>}
               </div>
 
-              <button style={btn(loading)} onClick={handleSendOtp} disabled={loading}>
-                {loading ? "SENDING..." : "SEND CODE"}
+              <button style={btn(loading)} onClick={handleSendReset} disabled={loading}>
+                {loading ? "SENDING..." : "SEND RESET EMAIL"}
               </button>
             </>
           )}
 
-          {/* ── STEP 1: OTP ── */}
           {step === 1 && !done && (
             <>
-              <h1 style={titleStyle}>Enter Code</h1>
+              <h1 style={titleStyle}>Enter Reset Token</h1>
               <p style={subtitleStyle}>
-                We sent a 4-digit code to{" "}
-                <strong style={{ color: "#333" }}>{email}</strong>. It expires in 10 minutes.
+                We sent reset instructions to <strong style={{ color: "#333" }}>{email}</strong>.
+                Paste the token from that email here.
               </p>
 
-              <div style={otpRow}>
-                {otp.map((digit, i) => (
+              <div style={fieldGroup}>
+                <label style={labelStyle}>Reset Token</label>
+                <div style={inputWrap(tokenFocused)}>
                   <input
-                    key={i}
-                    id={`otp-${i}`}
-                    style={otpInput(otpFocused === i)}
+                    style={inputStyle}
                     type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(e.target.value, i)}
-                    onKeyDown={(e) => handleOtpKeyDown(e, i)}
-                    onFocus={() => setOtpFocused(i)}
-                    onBlur={() => setOtpFocused(-1)}
+                    placeholder="Paste the token from your email"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    onFocus={() => setTokenFocused(true)}
+                    onBlur={() => setTokenFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleContinueWithToken();
+                    }}
                   />
-                ))}
+                  <KeyIcon />
+                </div>
+                {tokenError && <p style={errorStyle}>{tokenError}</p>}
               </div>
-
-              {otpError && (
-                <p style={{ ...errorStyle, textAlign: "center", marginBottom: "12px" }}>{otpError}</p>
-              )}
 
               <p style={resendStyle}>
                 Didn't receive it?{" "}
-                <button style={resendBtn} onClick={() => alert("Code resent!")}>
-                  Resend Code
+                <button style={resendBtn} onClick={handleSendReset}>
+                  Resend Email
                 </button>
               </p>
 
-              <button style={btn(loading)} onClick={handleVerifyOtp} disabled={loading}>
-                {loading ? "VERIFYING..." : "VERIFY CODE"}
+              <button style={btn(false)} onClick={handleContinueWithToken}>
+                CONTINUE
               </button>
             </>
           )}
 
-          {/* ── STEP 2: New Password ── */}
           {step === 2 && !done && (
             <>
               <h1 style={titleStyle}>New Password</h1>
               <p style={subtitleStyle}>Create a strong password you haven't used before.</p>
+
+              {!tokenFromUrl && (
+                <div style={fieldGroup}>
+                  <label style={labelStyle}>Reset Token</label>
+                  <div style={inputWrap(pwFocused === "token")}>
+                    <input
+                      style={inputStyle}
+                      type="text"
+                      placeholder="Paste the token from your email"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      onFocus={() => setPwFocused("token")}
+                      onBlur={() => setPwFocused("")}
+                    />
+                    <KeyIcon />
+                  </div>
+                  {tokenError && <p style={errorStyle}>{tokenError}</p>}
+                </div>
+              )}
 
               <div style={fieldGroup}>
                 <label style={labelStyle}>New Password</label>
@@ -557,8 +544,6 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
                   />
                   <EyeIcon open={showNew} onClick={() => setShowNew((v) => !v)} />
                 </div>
-
-                {/* Password strength bar */}
                 {newPassword.length > 0 && (
                   <div style={{ display: "flex", gap: "4px", marginTop: "8px" }}>
                     {[1, 2, 3, 4].map((lvl) => (
@@ -570,10 +555,13 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
                           borderRadius: "2px",
                           background:
                             newPassword.length >= lvl * 2
-                              ? lvl <= 1 ? "#e53e3e"
-                              : lvl <= 2 ? "#ed8936"
-                              : lvl <= 3 ? "#ecc94b"
-                              : TEAL
+                              ? lvl <= 1
+                                ? "#e53e3e"
+                                : lvl <= 2
+                                  ? "#ed8936"
+                                  : lvl <= 3
+                                    ? "#ecc94b"
+                                    : TEAL
                               : "#eee",
                           transition: "background 0.3s",
                         }}
@@ -595,7 +583,9 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     onFocus={() => setPwFocused("confirm")}
                     onBlur={() => setPwFocused("")}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleReset(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleReset();
+                    }}
                   />
                   <EyeIcon open={showConfirm} onClick={() => setShowConfirm((v) => !v)} />
                 </div>
@@ -608,20 +598,20 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
             </>
           )}
 
-          {/* ── SUCCESS ── */}
           {done && (
             <div style={successBox}>
-              <div style={successIcon}><CheckIcon /></div>
+              <div style={successIcon}>
+                <CheckIcon />
+              </div>
               <h1 style={{ ...titleStyle, textAlign: "center" }}>Password Reset!</h1>
               <p style={{ ...subtitleStyle, textAlign: "center" }}>
                 Your password has been successfully updated. You can now log in with your new password.
               </p>
-              <button style={btn(false)} onClick={() => onBack?.()}>
+              <button style={btn(false)} onClick={() => navigate("/login")}>
                 BACK TO LOGIN
               </button>
             </div>
           )}
-
         </div>
       </div>
     </div>

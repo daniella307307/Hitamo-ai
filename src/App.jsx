@@ -10,9 +10,16 @@ import HitamoAIPage from './screen/Hitamo'
 import Hire1 from './screen/Hire1'
 import DashboardCandidate from './screen/DashboardCandidate'
 import Profile from './screen/Profile'
+import Applications from './screen/Applications'
 import Logout from './components/Logout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { useAuth } from './context/AuthContext'
+import EditProfile from './screen/EditProfile'
+
 function App() {
+  const { user } = useAuth()
+  const homeRoute = user?.role === 'CANDIDATE' ? '/home' : '/dashboard'
+
   return (
     <Routes>
       
@@ -20,19 +27,22 @@ function App() {
       <Route path="/signup" element={<SignupPage />} />
       
       {/* Redirect root to login */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to={user ? homeRoute : "/login"} replace />} />
       
       {/* Dashboard and other protected routes will go here */}
       <Route path="/dashboard" element={<ProtectedRoute>
         <Dashboard/>
       </ProtectedRoute>} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/analytics" element={<Analytics />} />
-      <Route path="/hitamo-ai" element={<HitamoAIPage/>} />
-      <Route path='/hire' element={<Hire1/>} />
-      <Route path='/home' element={<DashboardCandidate/>} />
-      <Route path='/profile' element={<Profile/>} />
-      <Route path='/logout' element={<Logout/>}/>
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+      <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
+      <Route path="/hitamo-ai" element={<ProtectedRoute><HitamoAIPage /></ProtectedRoute>} />
+      <Route path='/hire' element={<ProtectedRoute><Hire1 /></ProtectedRoute>} />
+      <Route path='/home' element={<ProtectedRoute><DashboardCandidate /></ProtectedRoute>} />
+      <Route path='/profile' element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path='/profile/edit' element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+      <Route path='/applications' element={<ProtectedRoute><Applications/></ProtectedRoute>}/>
+      <Route path='/logout' element={<ProtectedRoute><Logout /></ProtectedRoute>}/>
     </Routes>
   )
 }

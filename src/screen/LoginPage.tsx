@@ -185,8 +185,8 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      // Replace with your auth logic
-      await login(email, password);
+      const user = await login(email, password);
+      navigate(user.role === "CANDIDATE" ? "/home" : "/dashboard", { replace: true });
     } catch {
       setError("Invalid email or password");
     } finally {
@@ -247,7 +247,7 @@ export default function LoginPage() {
           </div>
 
           {/* Forgot Password */}
-          <button style={styles.forgot} onClick={()=> navigation.navigate('/forgot-password')}>FORGOT PASSWORD?</button>
+          <button style={styles.forgot} onClick={() => navigate('/forgot-password')}>FORGOT PASSWORD?</button>
 
           {/* Login Button */}
           <button

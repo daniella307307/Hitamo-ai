@@ -1,6 +1,7 @@
 import { useState, CSSProperties } from "react";
 import toast from "react-hot-toast";
 import { jobService, type EmploymentType } from "../service/job";
+import { useAuth } from "../context/AuthContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -67,12 +68,32 @@ const EMPLOYMENT_TYPES: EmploymentType[] = [
   "internship",
 ];
 const CURRENCIES = ["USD", "RWF", "KES", "UGX", "TZS"];
+const MIN_DESCRIPTION_LENGTH = 20;
+const DEFAULT_PIPELINE_STAGES = [
+  "Applied",
+  "Phone Screen",
+  "Technical Interview",
+  "Final Round",
+  "Offer",
+  "Hired",
+  "Rejected",
+];
 
 const splitEntries = (value: string): string[] =>
   value
     .split(/\r?\n|,/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+
+const normalizeText = (value: string): string =>
+  value.replace(/\s+/g, " ").trim();
+
+const formatDeadline = (value: string): string | undefined => {
+  if (!value) return undefined;
+
+  const deadline = new Date(`${value}T23:59:59Z`);
+  return Number.isNaN(deadline.getTime()) ? undefined : deadline.toISOString();
+};
 
 const buildJobPayload = (
   step1: Step1Data,
@@ -81,7 +102,7 @@ const buildJobPayload = (
   step4: Step4Data
 ) => ({
   title: step2.position.trim(),
-  description: step2.jobDesc.trim(),
+  description: normalizeText(step2.jobDesc),
   requirements: [
     ...splitEntries(step2.qualifications),
     ...step3.docs.map((doc) => `${doc} required`),
@@ -95,12 +116,14 @@ const buildJobPayload = (
   salaryMin: step2.salaryMin ? Number(step2.salaryMin) : undefined,
   salaryMax: step2.salaryMax ? Number(step2.salaryMax) : undefined,
   currency: step2.currency,
-  applicationDeadline: step4.deadline || undefined,
+  applicationDeadline: formatDeadline(step4.deadline),
   aiScreeningEnabled: step4.interview,
   aiScreeningCriteria: step4.interview
     ? step4.aiCriteria.trim() || undefined
     : undefined,
-  pipelineStages: splitEntries(step4.pipelineStages),
+  pipelineStages: splitEntries(step4.pipelineStages).length
+    ? splitEntries(step4.pipelineStages)
+    : DEFAULT_PIPELINE_STAGES,
 });
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -316,7 +339,7 @@ const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
 const FooterButtons = ({
   onBack,
   onNext,
-  nextLabel = "Continue →",
+  nextLabel = "Continue ->",
   isSubmit = false,
 }: {
   onBack?: () => void;
@@ -337,7 +360,7 @@ const FooterButtons = ({
         onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#9aaba8")}
         onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#dce8e6")}
       >
-        ← Back
+         Back
       </button>
     )}
     <button
@@ -421,7 +444,7 @@ const Sidebar = ({ current }: { current: number }) => (
       borderBottom: "1px solid rgba(255,255,255,0.13)",
       letterSpacing: "-0.3px",
     }}>
-     <button onClick={()=>{}}> H— <span style={{ fontWeight: 400, opacity: 0.6 }}>Hitamo AI</span></button>
+      H- <span style={{ fontWeight: 400, opacity: 0.6 }}>Hitamo AI</span>
     </div>
     <div style={{
       fontSize: "10px", fontWeight: 700, letterSpacing: "1px",
@@ -474,7 +497,7 @@ const Sidebar = ({ current }: { current: number }) => (
 
 // ─── Topbar ───────────────────────────────────────────────────────────────────
 
-const Topbar = () => (
+const Topbar = ({ initial }: { initial: string }) => (
   <div style={{
     background: "#fff", padding: "15px 24px",
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -504,7 +527,7 @@ const Topbar = () => (
         display: "flex", alignItems: "center", justifyContent: "center",
         color: "#fff", fontWeight: 800, fontSize: "11px", cursor: "pointer",
       }}>
-        DA
+        {initial}
       </div>
     </div>
   </div>
@@ -759,8 +782,8 @@ const Step4 = ({ data, onChange, onBack, onSubmit, isSubmitting }: {
   return (
     <div>
       <p style={sectionTitle}>AI virtual interview</p>
-      <RadioOption value={true} title="Yes — use AI screening" desc="Candidates complete an AI-led interview before review" />
-      <RadioOption value={false} title="No — skip AI screening" desc="Proceed directly to manual review of applications" />
+      <RadioOption value={true} title="Yes - use AI screening" desc="Candidates complete an AI-led interview before review" />
+      <RadioOption value={false} title="No - skip AI screening" desc="Proceed directly to manual review of applications" />
 
       <div style={divider} />
 
@@ -875,7 +898,9 @@ export default function Hire() {
   const [step, setStep] = useState<number>(1);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const { user } = useAuth();
+  const initial = user?.email?.charAt(0).toUpperCase() ?? "U";
+ 
   const [step1, setStep1] = useState<Step1Data>({
     country: "Rwanda", province: "Gasabo", district: "Gasabo",
     vision: "", mission: "",
@@ -900,8 +925,8 @@ export default function Hire() {
     interview: true,
     deadline: "",
     slots: 1,
-    pipelineStages: "Application Review\nHiring Team Review",
-    aiCriteria: "",
+    pipelineStages: DEFAULT_PIPELINE_STAGES.join("\n"),
+    aiCriteria: "Focus on role-specific skills, relevant experience, and communication.",
     notes: "",
   });
 
@@ -924,6 +949,12 @@ export default function Hire() {
 
     if (!payload.description) {
       toast.error("Job description is required.");
+      setStep(2);
+      return;
+    }
+
+    if (payload.description.length < MIN_DESCRIPTION_LENGTH) {
+      toast.error(`Job description must be at least ${MIN_DESCRIPTION_LENGTH} characters.`);
       setStep(2);
       return;
     }
@@ -1010,12 +1041,43 @@ export default function Hire() {
         display: "flex", flexDirection: "column",
         overflow: "hidden",
       }}>
-        <Topbar />
+        <Topbar initial={initial} />
 
         {submitted ? (
           <SuccessScreen
             positionName={step2.position}
-            onReset={() => { setSubmitted(false); setStep(1); }}
+            onReset={() => {
+              setSubmitted(false);
+              setStep(1);
+              setStep1({
+                country: "Rwanda", province: "Gasabo", district: "Gasabo",
+                vision: "", mission: "",
+              });
+              setStep2({
+                position: "",
+                jobDesc: "",
+                responsibilities: "",
+                qualifications: "",
+                skills: "",
+                employmentType: "full-time",
+                isRemote: false,
+                salaryMin: "",
+                salaryMax: "",
+                currency: "USD",
+              });
+              setStep3({
+                extraInfo: "", docs: ["Resume", "Cover letter"],
+                linkedin: true, github: true,
+              });
+              setStep4({
+                interview: true,
+                deadline: "",
+                slots: 1,
+                pipelineStages: DEFAULT_PIPELINE_STAGES.join("\n"),
+                aiCriteria: "Focus on role-specific skills, relevant experience, and communication.",
+                notes: "",
+              });
+            }}
           />
         ) : (
           <div style={scrollStyle}>

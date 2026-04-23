@@ -253,7 +253,7 @@ export default function SignupPage() {
   setError("");
 
   try {
-    await register(
+    const user = await register(
       payload.firstName,
       payload.lastName,
       payload.email,
@@ -261,9 +261,9 @@ export default function SignupPage() {
       payload.phoneNumber
     );
 
-    navigation.navigate("/dashboard");
+    navigate(user.role === "CANDIDATE" ? "/home" : "/dashboard", { replace: true });
   } catch (err: any) {
-    console.log("FULL ERROR:", err);
+   
 
     const details = err?.response?.data?.error?.details;
 

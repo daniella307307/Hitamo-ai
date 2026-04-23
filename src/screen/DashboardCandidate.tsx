@@ -180,7 +180,7 @@ export default function DashboardCandidate() {
   ];
   const {user} = useAuth();
   const initial = user?.email.charAt(0).toUpperCase();
-  console.log(initial)
+
   return (
     <div style={{
       fontFamily: "'DM Sans', sans-serif",

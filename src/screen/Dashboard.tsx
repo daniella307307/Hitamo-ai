@@ -3,6 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -99,13 +100,14 @@ const NAV_ITEMS: { name: NavItem; icon: JSX.Element; link: string }[] = [
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState<NavItem>("Home");
   const [ongoingCount]            = useState(0);
   const [totalApplicants]         = useState(0);
   const chartTotal                = chartData.reduce((s, d) => s + d.applicants, 0);
   const { user } = useAuth();
   const initial = user?.email.charAt(0).toUpperCase();
-  console.log(initial);
+ 
   return (
     <div style={{ display: "flex", height: "100vh", background: TEAL, fontFamily: "'DM Sans','Segoe UI',sans-serif", overflow: "hidden", borderRadius: 30 }}>
       <style>{`
@@ -127,7 +129,7 @@ export default function Dashboard() {
         </div>
         <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", flex: 1 }}>
           {NAV_ITEMS.map(({ name, icon,link }) => (
-            <button key={name} className="nav-btn" onClick={() => {setActiveNav(name); navigation.navigate(link)}} style={{
+            <button key={name} className="nav-btn" onClick={() => {setActiveNav(name); navigate(link)}} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, cursor: "pointer",
               background: activeNav === name ? "#fff" : "transparent",
               color: activeNav === name ? TEAL_DARK : "rgba(255,255,255,0.82)",
@@ -198,7 +200,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#202124", marginBottom: 5 }}>Ready to hire?</div>
                 <p style={{ fontSize: 12, color: "#9aa0a6", lineHeight: 1.6, margin: 0 }}>Start a new application process and find your next great hire.</p>
               </div>
-              <button className="cta-btn" onClick={()=> navigation.navigate('/hire')} style={{ background: TEAL, color: "#fff", border: "none", borderRadius: 10, padding: "12px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s"}}>
+              <button className="cta-btn" onClick={()=> navigate('/hire')} style={{ background: TEAL, color: "#fff", border: "none", borderRadius: 10, padding: "12px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s"}}>
                 + Start new Process
               </button>
             </div>

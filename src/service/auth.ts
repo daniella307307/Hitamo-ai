@@ -1,53 +1,81 @@
-// src/services/authService.js
 import api from '../lib/api'
 
-export const authService = {
-  async login(email :string, password:string) {
-    const { data } = await api.post('/auth/login', { email, password })
-    const { access_token, refresh_token, user } = data.data
+export interface AuthUser {
+  name: string
+  email: string
+  role: 'CANDIDATE' | 'RECRUITER' | 'ORG_OWNER' | 'ADMIN'
+}
 
-    localStorage.setItem('access_token', access_token)
-    localStorage.setItem('refresh_token', refresh_token)
-    localStorage.setItem('user', user);
-    console.log("role",user.role)
-    if (user.role === "CANDIDATE"){
-      navigation.navigate('/home');
-    }else{
-      navigation.navigate('/dashboard')
+const USER_STORAGE_KEY = 'user'
+
+const saveUser = (user: AuthUser) => {
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+}
+
+const getTokenPair = (payload: any) => {
+  const tokenSource = payload?.tokens ?? payload
+
+  return {
+    accessToken: tokenSource?.accessToken ?? tokenSource?.access_token ?? null,
+    refreshToken: tokenSource?.refreshToken ?? tokenSource?.refresh_token ?? null,
+  }
+}
+
+const getStoredUser = (): AuthUser | null => {
+  const storedUser = localStorage.getItem(USER_STORAGE_KEY)
+  if (!storedUser) return null
+
+  try {
+    return JSON.parse(storedUser) as AuthUser
+  } catch {
+    localStorage.removeItem(USER_STORAGE_KEY)
+    return null
+  }
+}
+
+export const authService = {
+  async login(email: string, password: string): Promise<AuthUser> {
+    const { data } = await api.post('/auth/login', { email, password })
+    const { user } = data.data
+    const { accessToken, refreshToken } = getTokenPair(data.data)
+
+    if (!accessToken || !refreshToken) {
+      throw new Error('Login response did not include tokens.')
     }
-    return user  // { id, role: 'CANDIDATE' | 'RECRUITER' | 'ORG_OWNER' | 'ADMIN' }
+
+    localStorage.setItem('access_token', accessToken)
+    localStorage.setItem('refresh_token', refreshToken)
+    saveUser(user)
+
+    return user
   },
-  async register(email: string, password: string, firstName: string, lastName: string) {
+  async register(firstName: string, lastName: string, email: string, password: string, phone?: string): Promise<AuthUser> {
   const name = `${firstName} ${lastName}`;
 
   const  response  = await api.post('/auth/register', {
     name,
     email,
     password,
+    ...(phone ? { phoneNumber: phone } : {}),
   });
   console.log("Response:",response)
-  const { user, tokens } = response.data.data;
+  const { user } = response.data.data;
+  const { accessToken, refreshToken } = getTokenPair(response.data.data)
 
-  localStorage.setItem('access_token', tokens.accessToken);
-  localStorage.setItem('refresh_token', tokens.refreshToken);
-  localStorage.setItem('user', user);
+  if (!accessToken || !refreshToken) {
+    throw new Error('Registration response did not include tokens.');
+  }
+
+  localStorage.setItem('access_token', accessToken);
+  localStorage.setItem('refresh_token', refreshToken);
+  saveUser(user);
   return user;
 },
   async forgot(email:string) {
-    try {
-      await api.post('/auth/password-reset/request',{ email })
-    } finally {
-      localStorage.clear()
-      window.location.href = '/login'
-    }
+    await api.post('/auth/password-reset/request',{ email })
   },
   async resetpassword(token:string, newPassword:string) {
-    try {
-      await api.post('/auth/password-reset/confirm', { token, newPassword })
-    } finally {
-      localStorage.clear()
-      window.location.href = '/login'
-    }
+    await api.post('/auth/password-reset/confirm', { token, newPassword })
   },
   
   async logout() {
@@ -69,6 +97,10 @@ export const authService = {
     }catch(err){
       throw err;
     }
+  },
+
+  getStoredUser() {
+    return getStoredUser()
   },
 
 
