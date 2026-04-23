@@ -1,8 +1,9 @@
 {
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "builds": [
+    { "src": "scripts/generate-sitemap.js", "use": "@vercel/node" },
+    { "src": "package.json", "use": "@vercel/static-build" }
   ]
 }
