@@ -247,13 +247,11 @@ export default function SignupPage() {
     phoneNumber: formattedPhone,
   };
 
-  console.log("FINAL PAYLOAD:", payload);
-
   setLoading(true);
   setError("");
 
   try {
-    const user = await register(
+    await register(
       payload.firstName,
       payload.lastName,
       payload.email,
@@ -261,7 +259,7 @@ export default function SignupPage() {
       payload.phoneNumber
     );
 
-    navigate(user.role === "CANDIDATE" ? "/home" : "/dashboard", { replace: true });
+    navigate("/home", { replace: true });
   } catch (err: any) {
    
 
@@ -320,7 +318,7 @@ export default function SignupPage() {
       <div style={styles.rightPanel}>
         <div style={styles.card}>
           <h1 style={styles.title}>Welcome</h1>
-          <p style={styles.subtitle}>enter your details</p>
+          <p style={styles.subtitle}>Create your candidate account</p>
           <div>
             {/* First Name */}
             <div style={styles.fieldGroup}>

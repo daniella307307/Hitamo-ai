@@ -58,7 +58,6 @@ export const authService = {
     password,
     ...(phone ? { phoneNumber: phone } : {}),
   });
-  console.log("Response:",response)
   const { user } = response.data.data;
   const { accessToken, refreshToken } = getTokenPair(response.data.data)
 

@@ -1,9 +1,13 @@
-import { useState, CSSProperties, JSX } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ResponsiveContainer,
 } from "recharts";
 import Calendar from "../components/Calendar";
+import Sidebar from "../components/Sidebar";
+import { useAuth } from "../context/AuthContext";
+import { jobService } from "../service/job";
+import { applicationService, type Application } from "../service/application";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TEAL        = "#1a7a6e";
@@ -15,7 +19,6 @@ const TEAL_GLOW   = "rgba(32,178,160,0.18)";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NavItem   = "Home" | "Analytics" | "Applications" | "Hitamo AI" | "Profile" | "Logout";
 type TimeRange = "Daily" | "Week" | "Month";
 
 interface StatCard  { label: string; value: string; unit?: string; accent?: boolean; trend?: string; trendUp?: boolean }
@@ -52,11 +55,6 @@ const padded: (number|null)[] = [null,null,null,null,null,...Array.from({length:
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
-const HomeIcon        = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>;
-const AnalyticsIcon   = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>;
-const ApplicationsIcon= () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>;
-const AIIcon          = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
-const ProfileIcon     = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
 const SearchIcon      = () => <svg width="17" height="17" fill="none" stroke="#9aa0a6" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>;
 const BellIcon        = () => <svg width="17" height="17" fill="none" stroke="#9aa0a6" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
 const ChevronLeft     = () => <svg width="13" height="13" fill="none" stroke="#9aa0a6" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>;
@@ -64,7 +62,6 @@ const ChevronRight    = () => <svg width="13" height="13" fill="none" stroke="#9
 const ArrowUpIcon     = () => <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>;
 const ArrowDownIcon   = () => <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>;
 const ClockIcon       = () => <svg width="14" height="14" fill="none" stroke={TEAL_MID} strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>;
-const LogoutIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 const AppBadge = ({ color, letter }: { color: string; letter: string }) => (
   <div style={{ width: 38, height: 38, borderRadius: 10, background: color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 800, color: "#fff", fontSize: 15, boxShadow: `0 4px 12px ${color}55` }}>
     {letter}
@@ -88,22 +85,91 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
 
 
 
-// ─── Nav config ───────────────────────────────────────────────────────────────
-
-const NAV_ITEMS: { name: NavItem; icon: JSX.Element; link: string }[] = [
-  { name: "Home",         icon: <HomeIcon />, link: "/home" },
-  { name: "Analytics",   icon: <AnalyticsIcon />, link: "/analytics" },
-  { name: "Applications",icon: <ApplicationsIcon />, link: "/applications" },
-  { name: "Hitamo AI",   icon: <AIIcon />, link: "/hitamo-ai" },
-  { name: "Profile",     icon: <ProfileIcon />, link: "/profile" },
-  { name:"Logout", icon:<LogoutIcon/>,link:"/logout"}
-];
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const [activeNav,  setActiveNav]  = useState<NavItem>("Analytics");
   const [timeRange,  setTimeRange]  = useState<TimeRange>("Daily");
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [activeJobs, setActiveJobs] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const initial = user?.email?.charAt(0).toUpperCase() ?? "U";
+  const displayName = user?.email?.split("@")[0] ?? "there";
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAnalytics = async () => {
+      setLoading(true);
+      try {
+        const [jobResponse, appResponse] = await Promise.all([
+          jobService.getJobs({ page: 1, limit: 100 }),
+          applicationService.listApplications({ page: 1, limit: 300 }),
+        ]);
+        if (cancelled) return;
+        setActiveJobs(jobResponse.items.filter((job) => job.status === "active").length);
+        setApplications(appResponse);
+      } catch {
+        if (!cancelled) {
+          setActiveJobs(0);
+          setApplications([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadAnalytics();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const activeApplications = applications.filter((application) => application.status === "active").length;
+  const avgAiScore = applications.length
+    ? Math.round(applications.reduce((sum, application) => sum + (typeof application.aiScore === "number" ? application.aiScore : 0), 0) / applications.length)
+    : 0;
+  const progressedApplications = applications.filter((application) => (application.currentStage ?? "").toLowerCase() !== "applied").length;
+  const successRate = applications.length ? ((progressedApplications / applications.length) * 100).toFixed(1) : "0.0";
+
+  const statCards: StatCard[] = useMemo(
+    () => [
+      { label: "Applicants", value: String(applications.length), accent: true, trend: loading ? "..." : `${activeApplications} active`, trendUp: true },
+      { label: "Active Processes", value: String(activeJobs), trend: loading ? "..." : "live", trendUp: true },
+      { label: "Avg. AI Score", value: String(avgAiScore), unit: "/100", trend: loading ? "..." : "auto", trendUp: true },
+      { label: "Progress Rate", value: successRate, unit: "%", trend: loading ? "..." : `${progressedApplications} progressed`, trendUp: true },
+    ],
+    [applications.length, activeApplications, activeJobs, avgAiScore, loading, progressedApplications, successRate]
+  );
+
+  const chartData: ChartPoint[] = useMemo(() => {
+    const labels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+    const counts = new Array(7).fill(0);
+    applications.forEach((application) => {
+      const date = new Date(application.createdAt);
+      if (Number.isNaN(date.getTime())) return;
+      const dayIndex = (date.getDay() + 6) % 7;
+      counts[dayIndex] += 1;
+    });
+    const todayIndex = (new Date().getDay() + 6) % 7;
+    return labels.map((day, index) => ({ day, hours: counts[index], active: index === todayIndex }));
+  }, [applications]);
+
+  const watchEntries: WatchEntry[] = useMemo(
+    () =>
+      applications.slice(0, 3).map((application, index) => {
+        const createdAt = new Date(application.createdAt);
+        const dateLabel = Number.isNaN(createdAt.getTime()) ? "N/A" : createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const title = typeof (application as any)?.jobId === "object" ? (application as any)?.jobId?.title : `Job ${application.jobId}`;
+        return {
+          id: index + 1,
+          time1: `${dateLabel}`,
+          time2: `${application.status}`,
+          label1: `${title} — ${application.currentStage}`,
+          label2: `Candidate ${application.candidateId}`,
+          total: `${typeof application.aiScore === "number" ? application.aiScore : 0}`,
+        };
+      }),
+    [applications]
+  );
 
   return (
     <div style={{
@@ -126,37 +192,7 @@ export default function AnalyticsPage() {
         .range-btn:hover { background: #f0f0f0 !important; }
       `}</style>
 
-      {/* ── SIDEBAR ── */}
-      <aside style={{
-        width: 220, flexShrink: 0,
-        background: TEAL,
-        display: "flex", flexDirection: "column",
-        padding: "32px 0", color: "#fff",
-        borderRadius: "30px 0 0 30px",
-      }}>
-        <div style={{ fontSize: 18, fontWeight: 800, padding: "0 24px 24px", marginBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.18)", letterSpacing: "-0.3px" }}>
-          H- <span style={{ fontWeight: 400, opacity: 0.7 }}>Hitamo AI</span>
-        </div>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", flex: 1 }}>
-          {NAV_ITEMS.map(({ name, icon, link }) => (
-            <button
-              key={name}
-              className="nav-btn"
-              onClick={() =>{ setActiveNav(name); navigation.navigate(link); }}
-              style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "11px 14px", borderRadius: 12, cursor: "pointer",
-                background: activeNav === name ? "#fff" : "transparent",
-                color: activeNav === name ? TEAL_DARK : "rgba(255,255,255,0.82)",
-                fontWeight: activeNav === name ? 700 : 500, fontSize: 14,
-                border: "none", width: "100%", textAlign: "left",
-                transition: "all 0.15s ease", fontFamily: "inherit",
-              }}>
-              {icon}{name}
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <Sidebar />
 
       {/* ── MAIN ── */}
       <main style={{
@@ -181,7 +217,7 @@ export default function AnalyticsPage() {
               <BellIcon />
               <span style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: "#e53935", border: "1.5px solid #fff" }} />
             </div>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, #f97316, #ef4444)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>DA</div>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, #f97316, #ef4444)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{initial}</div>
           </div>
         </div>
 
@@ -194,7 +230,7 @@ export default function AnalyticsPage() {
             {/* Stat cards */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 13, color: "#9aa0a6", fontWeight: 500, textAlign: "right" }}>
-                Welcome back, <strong style={{ color: "#202124", fontWeight: 700 }}>Daniella</strong>
+                Welcome back, <strong style={{ color: "#202124", fontWeight: 700 }}>{displayName}</strong>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
                 {statCards.map((card, i) => (
@@ -287,7 +323,7 @@ export default function AnalyticsPage() {
                 <XAxis
                   dataKey="day" axisLine={false} tickLine={false}
                   tick={({ x, y, payload }) => {
-                    const isActive = payload.value === "THU";
+                    const isActive = payload.value === chartData.find((item) => item.active)?.day;
                     return (
                       <g transform={`translate(${x},${y})`}>
                         {isActive && <rect x="-20" y="4" width="40" height="22" rx="7" fill={TEAL_MID} />}
@@ -303,7 +339,7 @@ export default function AnalyticsPage() {
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#d0d5d4", fontSize: 11 }} domain={[0, 14]} ticks={[0, 6, 12]} tickFormatter={(v) => `${v}h`} />
                 <Tooltip content={<CustomTooltip />} cursor={false} />
-                <ReferenceLine x="THU" stroke={TEAL_LIGHT} strokeWidth={32} strokeOpacity={0.15} />
+                <ReferenceLine x={chartData.find((item) => item.active)?.day} stroke={TEAL_LIGHT} strokeWidth={32} strokeOpacity={0.15} />
                 <Area type="monotone" dataKey="hours"
                   stroke={TEAL_MID} strokeWidth={2.5}
                   fill="url(#tealGrad)" dot={false}
@@ -321,7 +357,7 @@ export default function AnalyticsPage() {
               <span style={{ fontSize: 11, color: TEAL_MID, fontWeight: 600, cursor: "pointer" }}>View all →</span>
             </div>
 
-            {watchEntries.map((entry, i) => (
+            {(watchEntries.length ? watchEntries : [{ id: 1, time1: "-", time2: "-", label1: "No recent application activity yet", label2: "Submit or review applications to see live analytics", total: "0" }]).map((entry, i) => (
               <div
                 key={entry.id}
                 className="entry-row"

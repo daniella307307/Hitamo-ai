@@ -1,8 +1,13 @@
-import { useEffect, useState, JSX } from "react";
+import { useEffect, useMemo, useState, JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import { getJobIdentifiers, jobService, type Job, type JobStatus } from "../service/job";
+import { applicationService, type Application } from "../service/application";
+import Sidebar from "../components/Sidebar";
+import { aiService, type ScreenJobResult } from "../service/ai";
+import { useOrganisation } from "../context/OrganisationContext";
+import { jsPDF } from "jspdf";
 
 const TEAL = "#1a7a6e";
 const TEAL_DARK = "#156b5e";
@@ -10,8 +15,6 @@ const TEAL_MID = "#20b2a0";
 const TEAL_LIGHT = "#4ecdc4";
 const TEAL_BG = "#e6f7f5";
 const TEAL_GLOW = "rgba(32,178,160,0.20)";
-
-type NavItem = "Home" | "Analytics" | "Applications" | "Hitamo AI" | "Profile" | "Logout";
 
 const STATUS_LABELS: Record<JobStatus, string> = {
   draft: "Draft",
@@ -37,26 +40,11 @@ const STATUS_STYLES: Record<JobStatus, { bg: string; color: string }> = {
   archived: { bg: "#f3f4f6", color: "#4b5563" },
 };
 
-const HomeIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>;
-const AnalyticsIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>;
-const ApplicationsIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>;
-const AIIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
-const ProfileIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
 const SearchIcon = () => <svg width="17" height="17" fill="none" stroke="#9aa0a6" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>;
 const BellIcon = () => <svg width="17" height="17" fill="none" stroke="#9aa0a6" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
-const LogoutIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 const CalendarIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>;
 const EyeIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>;
 const UsersIcon = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-
-const NAV_ITEMS: { name: NavItem; icon: JSX.Element; link: string }[] = [
-  { name: "Home", icon: <HomeIcon />, link: "/dashboard" },
-  { name: "Analytics", icon: <AnalyticsIcon />, link: "/analytics" },
-  { name: "Applications", icon: <ApplicationsIcon />, link: "/applications" },
-  { name: "Hitamo AI", icon: <AIIcon />, link: "/hire" },
-  { name: "Profile", icon: <ProfileIcon />, link: "/profile" },
-  { name: "Logout", icon: <LogoutIcon />, link: "/logout" },
-];
 
 const getJobId = (job: Partial<Job>) => getJobIdentifiers(job)[0] ?? "";
 
@@ -120,7 +108,7 @@ const statCard = (title: string, value: string | number, tone: "light" | "solid"
 
 export default function Applications() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -134,10 +122,29 @@ export default function Applications() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [submittingStatus, setSubmittingStatus] = useState<JobStatus | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [jobApplications, setJobApplications] = useState<Application[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [selectedPipelineApplicationId, setSelectedPipelineApplicationId] = useState("");
+  const [pipelineStage, setPipelineStage] = useState("");
+  const [pipelineNote, setPipelineNote] = useState("");
+  const [pipelineLoading, setPipelineLoading] = useState(false);
+  const [selectedBulkStageIds, setSelectedBulkStageIds] = useState<string[]>([]);
+  const [bulkStage, setBulkStage] = useState("");
+  const [bulkStageNote, setBulkStageNote] = useState("");
+  const [bulkStageLoading, setBulkStageLoading] = useState(false);
+  const [screening, setScreening] = useState(false);
+  const [screeningMode, setScreeningMode] = useState<"platform" | "custom">("platform");
+  const [screeningResult, setScreeningResult] = useState<ScreenJobResult | null>(null);
 
   const initial = user?.email?.charAt(0).toUpperCase() ?? "U";
   const totalApplicants = jobs.reduce((sum, job) => sum + job.applicationCount, 0);
   const activeJobs = jobs.filter((job) => job.status === "active").length;
+  const canManagePipeline = role === "RECRUITER" || role === "ORG_OWNER" || role === "ADMIN";
+  const { organization, refreshMyOrganization } = useOrganisation();
+  const tokenBalance = organization?.tokenBalance;
+
+  const aiEnabled = !!selectedJob?.aiScreeningEnabled;
+  const pipelineStages = useMemo(() => selectedJob?.pipelineStages ?? [], [selectedJob]);
 
   useEffect(() => {
     let cancelled = false;
@@ -223,6 +230,49 @@ export default function Applications() {
       cancelled = true;
     };
   }, [jobs, selectedJobId]);
+
+  useEffect(() => {
+    if (!selectedJobId) {
+      setJobApplications([]);
+      setSelectedPipelineApplicationId("");
+      setSelectedBulkStageIds([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadApplications = async () => {
+      setApplicationsLoading(true);
+      try {
+        const items = await applicationService.listApplications({
+          page: 1,
+          limit: 200,
+          jobId: selectedJobId,
+        });
+
+        if (cancelled) return;
+
+        setJobApplications(items);
+        setSelectedPipelineApplicationId((current) =>
+          current && items.some((item) => item._id === current) ? current : items[0]?._id ?? ""
+        );
+        setSelectedBulkStageIds((current) => current.filter((id) => items.some((item) => item._id === id)));
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Failed to load applications.";
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) setApplicationsLoading(false);
+      }
+    };
+
+    loadApplications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedJobId]);
 
   const refreshJobs = async () => {
     const response = await jobService.getJobs({
@@ -337,6 +387,176 @@ export default function Applications() {
     );
   };
 
+  const toggleBulkApplicationSelection = (applicationId: string) => {
+    setSelectedBulkStageIds((current) =>
+      current.includes(applicationId)
+        ? current.filter((id) => id !== applicationId)
+        : [...current, applicationId]
+    );
+  };
+
+  const getApplicationTitle = (application: Application) => {
+    const jobRef = (application as any)?.jobId;
+    const candidateRef = (application as any)?.candidateId;
+    const jobTitle = typeof jobRef === "object" ? jobRef?.title : null;
+    const candidateName = typeof candidateRef === "object" ? candidateRef?.name ?? candidateRef?.email : null;
+    return `${jobTitle ?? selectedJob?.title ?? "Application"}${candidateName ? ` · ${candidateName}` : ""}`;
+  };
+
+  const handleMoveStage = async () => {
+    if (!canManagePipeline) {
+      toast.error("Only recruiter, org owner, or admin can move application stages.");
+      return;
+    }
+    if (!selectedPipelineApplicationId || !pipelineStage.trim()) {
+      toast.error("Select an application and stage.");
+      return;
+    }
+
+    setPipelineLoading(true);
+    try {
+      const updated = await applicationService.moveApplicationToStage(selectedPipelineApplicationId, {
+        stage: pipelineStage.trim(),
+        note: pipelineNote.trim() || undefined,
+      });
+      toast.success(`Moved to "${updated.currentStage}".`);
+      setPipelineNote("");
+      setJobApplications((current) =>
+        current.map((item) =>
+          item._id === updated._id
+            ? { ...item, currentStage: updated.currentStage, status: updated.status ?? item.status }
+            : item
+        )
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to move stage.";
+      toast.error(message);
+    } finally {
+      setPipelineLoading(false);
+    }
+  };
+
+  const handleBulkMoveStage = async () => {
+    if (!canManagePipeline) {
+      toast.error("Only recruiter, org owner, or admin can run bulk stage updates.");
+      return;
+    }
+    const applicationIds = selectedBulkStageIds;
+    if (!applicationIds.length || !bulkStage.trim()) {
+      toast.error("Provide at least one application ID and a stage.");
+      return;
+    }
+
+    setBulkStageLoading(true);
+    try {
+      const result = await applicationService.bulkMoveStage({
+        applicationIds,
+        stage: bulkStage.trim(),
+        note: bulkStageNote.trim() || undefined,
+      });
+      const affected = result.affectedCount ?? result.affected ?? applicationIds.length;
+      toast.success(`Bulk update complete for ${affected} application(s).`);
+      setBulkStageNote("");
+      setSelectedBulkStageIds([]);
+      setJobApplications((current) =>
+        current.map((item) =>
+          applicationIds.includes(item._id) ? { ...item, currentStage: bulkStage.trim() } : item
+        )
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to run bulk stage update.";
+      toast.error(message);
+    } finally {
+      setBulkStageLoading(false);
+    }
+  };
+
+  const handleScreenApplicants = async () => {
+    if (!selectedJobId) return;
+    if (!aiEnabled) {
+      toast.error("AI screening is disabled for this job.");
+      return;
+    }
+
+    setScreening(true);
+    try {
+      const result = await aiService.screenJobApplicants(selectedJobId, { mode: screeningMode });
+      setScreeningResult(result);
+      toast.success(`Screened ${result.screened} candidate(s).`);
+      await refreshMyOrganization();
+
+      // Refresh job applications list after screening so AI score shows up.
+      const items = await applicationService.listApplications({ page: 1, limit: 200, jobId: selectedJobId });
+      setJobApplications(items);
+    } catch (error: any) {
+      const code = error?.code;
+      if (code === "SUBSCRIPTION_REQUIRED") toast.error("Active subscription required to use AI screening.");
+      else if (error?.status === 400) toast.error(error?.message || "Insufficient token balance.");
+      else if (error?.status === 429) toast.error("AI rate limit exceeded. Please try again shortly.");
+      else toast.error(error instanceof Error ? error.message : "AI screening failed.");
+    } finally {
+      setScreening(false);
+    }
+  };
+
+  const handleDownloadScreeningReport = () => {
+    if (!screeningResult || !selectedJob) {
+      toast.error("No AI screening report available yet.");
+      return;
+    }
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 48;
+    let y = 56;
+
+    const writeLine = (text: string, size = 11, weight: "normal" | "bold" = "normal", gap = 16) => {
+      doc.setFont("helvetica", weight);
+      doc.setFontSize(size);
+      const lines = doc.splitTextToSize(text, pageWidth - marginX * 2);
+      lines.forEach((line: string) => {
+        if (y > pageHeight - 48) {
+          doc.addPage();
+          y = 56;
+        }
+        doc.text(line, marginX, y);
+        y += gap;
+      });
+    };
+
+    writeLine("AI Screening Report", 18, "bold", 24);
+    writeLine(`Generated At: ${new Date().toLocaleString()}`);
+    writeLine(`Job: ${selectedJob.title} (${screeningResult.jobId})`);
+    writeLine(`Mode: ${screeningMode}`);
+    writeLine(`Screened: ${screeningResult.screened}`);
+    writeLine(`Tokens Consumed: ${screeningResult.tokensConsumed}`);
+    writeLine(`Screened At: ${screeningResult.screenedAt || "N/A"}`);
+    y += 8;
+    writeLine("Ranked Candidates", 14, "bold", 20);
+
+    const ranked = screeningResult.rankedCandidates ?? [];
+    if (!ranked.length) {
+      writeLine("No ranked candidates were returned.");
+    } else {
+      ranked.forEach((candidate, index) => {
+        writeLine(`${index + 1}. Candidate: ${candidate.candidateId} | Application: ${candidate.applicationId}`, 11, "bold");
+        writeLine(`Score: ${candidate.aiScore} | Tokens: ${candidate.tokensConsumed ?? 0}`);
+        writeLine(`Recommendation: ${candidate.aiAnalysis?.recommendation || "N/A"}`);
+        writeLine(`Summary: ${candidate.aiAnalysis?.summary || "N/A"}`);
+        const strengths = (candidate.aiAnalysis?.strengths ?? []).join(", ") || "N/A";
+        const gaps = (candidate.aiAnalysis?.gaps ?? []).join(", ") || "N/A";
+        writeLine(`Strengths: ${strengths}`);
+        writeLine(`Gaps: ${gaps}`);
+        y += 8;
+      });
+    }
+
+    const datePart = new Date().toISOString().slice(0, 10);
+    doc.save(`ai-screening-report-${screeningResult.jobId}-${datePart}.pdf`);
+    toast.success("AI screening PDF report downloaded.");
+  };
+
   return (
     <div style={{ display: "flex", height: "100vh", background: TEAL, fontFamily: "'DM Sans','Segoe UI',sans-serif", overflow: "hidden", borderRadius: 30 }}>
       <style>{`
@@ -346,40 +566,7 @@ export default function Applications() {
         .subtle-btn:hover { background: #d8f2ee !important; }
       `}</style>
 
-      <aside style={{ width: 220, flexShrink: 0, background: TEAL, display: "flex", flexDirection: "column", padding: "32px 0", color: "#fff", borderRadius: "30px 0 0 30px" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, padding: "0 24px 24px", marginBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.18)", letterSpacing: "-0.3px" }}>
-          H- <span style={{ fontWeight: 400, opacity: 0.7 }}>Hitamo AI</span>
-        </div>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", flex: 1 }}>
-          {NAV_ITEMS.map(({ name, icon, link }) => (
-            <button
-              key={name}
-              className="nav-btn"
-              onClick={() => navigate(link)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "11px 14px",
-                borderRadius: 12,
-                cursor: "pointer",
-                background: name === "Applications" ? "#fff" : "transparent",
-                color: name === "Applications" ? TEAL_DARK : "rgba(255,255,255,0.82)",
-                fontWeight: name === "Applications" ? 700 : 500,
-                fontSize: 14,
-                border: "none",
-                width: "100%",
-                textAlign: "left",
-                transition: "all 0.15s ease",
-                fontFamily: "inherit",
-              }}
-            >
-              {icon}
-              {name}
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <Sidebar />
 
       <main style={{ flex: 1, background: "#f7f9f9", borderRadius: "0 30px 30px 0", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ background: "#fff", padding: "18px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #f0f0f0" }}>
@@ -670,6 +857,90 @@ export default function Applications() {
                           ? selectedJob.aiScreeningCriteria || "AI screening is enabled for this job."
                           : "AI screening is disabled for this job."}
                       </div>
+
+                      {selectedJob.aiScreeningEnabled && (
+                        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                            <div style={{ fontSize: 12, color: "#7c8a88" }}>
+                              Mode:{" "}
+                              <strong style={{ color: "#202124" }}>
+                                {screeningMode === "platform" ? "Platform (uses org tokens)" : "Custom (uses org key)"}
+                              </strong>
+                              {typeof tokenBalance === "number" && screeningMode === "platform" && (
+                                <span> · Tokens: <strong style={{ color: TEAL_DARK }}>{tokenBalance}</strong></span>
+                              )}
+                            </div>
+                            <select
+                              value={screeningMode}
+                              onChange={(e) => setScreeningMode(e.target.value as "platform" | "custom")}
+                              style={{ border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "8px 10px", fontSize: 12, background: "#fff" }}
+                            >
+                              <option value="platform">platform</option>
+                              <option value="custom">custom</option>
+                            </select>
+                          </div>
+
+                          <button
+                            onClick={handleScreenApplicants}
+                            disabled={screening}
+                            style={{
+                              background: TEAL,
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 10,
+                              padding: "10px 12px",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: screening ? "not-allowed" : "pointer",
+                              opacity: screening ? 0.7 : 1,
+                            }}
+                          >
+                            {screening ? "Screening..." : "Run AI Screening"}
+                          </button>
+
+                          {screeningResult && (
+                            <button
+                              onClick={handleDownloadScreeningReport}
+                              style={{
+                                background: "#fff",
+                                color: TEAL_DARK,
+                                border: "1.5px solid #d9e5e4",
+                                borderRadius: 10,
+                                padding: "10px 12px",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Download Screening PDF
+                            </button>
+                          )}
+
+                          {screeningResult && (
+                            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8eaed", padding: "12px 12px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                                <div style={{ fontSize: 12, fontWeight: 800, color: "#202124" }}>Ranked candidates</div>
+                                <div style={{ fontSize: 11, color: "#7c8a88" }}>
+                                  screened {screeningResult.screened} · tokens {screeningResult.tokensConsumed}
+                                </div>
+                              </div>
+                              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                                {(screeningResult.rankedCandidates ?? []).slice(0, 5).map((c) => (
+                                  <div key={c.applicationId} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 10px", borderRadius: 10, background: "#f7f9f9" }}>
+                                    <div style={{ fontSize: 12, color: "#202124", fontWeight: 700 }}>
+                                      {c.candidateId}
+                                      <div style={{ fontSize: 11, fontWeight: 500, color: "#7c8a88", marginTop: 2 }}>
+                                        {c.aiAnalysis?.summary || c.aiAnalysis?.recommendation || "No summary"}
+                                      </div>
+                                    </div>
+                                    <div style={{ fontSize: 14, fontWeight: 800, color: TEAL_DARK }}>{c.aiScore}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ background: "#f8fbfb", borderRadius: 16, padding: 18 }}>
@@ -717,6 +988,89 @@ export default function Applications() {
                       <div style={{ fontSize: 12, color: "#7c8a88", lineHeight: 1.7, marginTop: 12 }}>
                         If the backend status route returns `404`, the page will keep the new status locally so your workflow is not blocked.
                       </div>
+                    </div>
+
+                    <div style={{ background: "#f8fbfb", borderRadius: 16, padding: 18 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#202124", marginBottom: 10 }}>Application Pipeline Actions</div>
+                      {applicationsLoading && (
+                        <div style={{ fontSize: 12, color: "#7c8a88", marginBottom: 10 }}>Loading submitted applications...</div>
+                      )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          <div style={{ fontSize: 12, color: "#5f6c6a" }}>
+                            Move stage for one or multiple submitted applications.
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <select
+                              value={selectedPipelineApplicationId}
+                              onChange={(e) => setSelectedPipelineApplicationId(e.target.value)}
+                              style={{ border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "10px 12px", fontSize: 12, background: "#fff" }}
+                            >
+                              <option value="">Select application</option>
+                              {jobApplications.map((application) => (
+                                <option key={application._id} value={application._id}>
+                                  {getApplicationTitle(application)} · {application.currentStage}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              value={pipelineStage}
+                              onChange={(e) => setPipelineStage(e.target.value)}
+                              placeholder="Target stage (e.g. Technical Interview)"
+                              style={{ border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "10px 12px", fontSize: 12, background: "#fff" }}
+                            />
+                          </div>
+                          <input
+                            value={pipelineNote}
+                            onChange={(e) => setPipelineNote(e.target.value)}
+                            placeholder="Optional note"
+                            style={{ border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "10px 12px", fontSize: 12, background: "#fff" }}
+                          />
+                          <button
+                            onClick={handleMoveStage}
+                            disabled={pipelineLoading || !selectedPipelineApplicationId}
+                            style={{ background: TEAL_BG, color: TEAL_DARK, border: "none", borderRadius: 10, padding: "10px 12px", fontSize: 12, fontWeight: 700, cursor: pipelineLoading ? "not-allowed" : "pointer", opacity: pipelineLoading ? 0.7 : 1 }}
+                          >
+                            {pipelineLoading ? "Moving..." : "Move Single Application Stage"}
+                          </button>
+
+                          <div style={{ background: "#fff", border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "10px 12px", maxHeight: 140, overflowY: "auto" }}>
+                            {jobApplications.length === 0 ? (
+                              <div style={{ fontSize: 12, color: "#7c8a88" }}>No submitted applications for this job yet.</div>
+                            ) : (
+                              jobApplications.map((application) => (
+                                <label key={application._id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#42514f", marginBottom: 6 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedBulkStageIds.includes(application._id)}
+                                    onChange={() => toggleBulkApplicationSelection(application._id)}
+                                  />
+                                  {getApplicationTitle(application)}
+                                </label>
+                              ))
+                            )}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <input
+                              value={bulkStage}
+                              onChange={(e) => setBulkStage(e.target.value)}
+                              placeholder="Bulk target stage"
+                              style={{ border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "10px 12px", fontSize: 12, background: "#fff" }}
+                            />
+                            <input
+                              value={bulkStageNote}
+                              onChange={(e) => setBulkStageNote(e.target.value)}
+                              placeholder="Optional bulk note"
+                              style={{ border: "1.5px solid #d9e5e4", borderRadius: 10, padding: "10px 12px", fontSize: 12, background: "#fff" }}
+                            />
+                          </div>
+                          <button
+                            onClick={handleBulkMoveStage}
+                            disabled={bulkStageLoading || selectedBulkStageIds.length === 0}
+                            style={{ background: TEAL, color: "#fff", border: "none", borderRadius: 10, padding: "10px 12px", fontSize: 12, fontWeight: 700, cursor: bulkStageLoading ? "not-allowed" : "pointer", opacity: bulkStageLoading ? 0.7 : 1 }}
+                          >
+                            {bulkStageLoading ? "Updating..." : "Bulk Move Stage"}
+                          </button>
+                        </div>
                     </div>
                   </div>
                 </>

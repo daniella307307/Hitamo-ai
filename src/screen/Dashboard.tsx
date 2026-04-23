@@ -1,10 +1,13 @@
-import { useState, JSX } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Sidebar from "../components/Sidebar";
+import { jobService, type Job } from "../service/job";
+import { applicationService, type Application } from "../service/application";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -17,33 +20,31 @@ const TEAL_GLOW  = "rgba(32,178,160,0.20)";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NavItem = "Home" | "Analytics" | "Applications" | "Hitamo AI" | "Profile" |"Logout";
 interface ChartDataPoint { month: string; applicants: number }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const chartData: ChartDataPoint[] = [
-  { month: "Jan", applicants: 25 }, { month: "Feb", applicants: 22 },
-  { month: "Mar", applicants: 26 }, { month: "Apr", applicants: 21 },
-  { month: "May", applicants: 24 }, { month: "Jun", applicants: 23 },
-  { month: "Jul", applicants: 27 }, { month: "Aug", applicants: 22 },
-  { month: "Sep", applicants: 25 }, { month: "Oct", applicants: 28 },
-  { month: "Nov", applicants: 20 }, { month: "Dec", applicants: 20 },
-];
+const buildMonthlyApplicants = (applications: Application[]): ChartDataPoint[] => {
+  const year = new Date().getFullYear();
+  const counts = new Array(12).fill(0);
+
+  applications.forEach((application) => {
+    const date = new Date(application.createdAt);
+    if (!Number.isNaN(date.getTime()) && date.getFullYear() === year) {
+      counts[date.getMonth()] += 1;
+    }
+  });
+
+  return MONTHS.map((month, index) => ({ month, applicants: counts[index] }));
+};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
-const HomeIcon         = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>;
-const AnalyticsIcon    = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>;
-const ApplicationsIcon = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>;
-const AIIcon           = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
-const ProfileIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
 const SearchIcon       = () => <svg width="17" height="17" fill="none" stroke="#9aa0a6" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>;
 const BellIcon         = () => <svg width="17" height="17" fill="none" stroke="#9aa0a6" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
 const DotsIcon         = () => <svg width="16" height="16" fill="#c0c7cc" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>;
 const SparkIcon        = () => <svg width="16" height="16" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>;
 const TrendFlatIcon    = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>;
-const LogoutIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 // ─── Gauge ────────────────────────────────────────────────────────────────────
 
 const Gauge = ({ value, max = 100 }: { value: number; max?: number }) => {
@@ -86,27 +87,54 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   );
 };
 
-// ─── Nav config ───────────────────────────────────────────────────────────────
-
-const NAV_ITEMS: { name: NavItem; icon: JSX.Element; link: string }[] = [
-  { name: "Home",          icon: <HomeIcon />,          link: "/dashboard" },
-  { name: "Analytics",    icon: <AnalyticsIcon />,    link: "/analytics" },
-  { name: "Applications", icon: <ApplicationsIcon />, link: "/applications" },
-  { name: "Hitamo AI",    icon: <AIIcon />,            link: "/hire" },
-  { name: "Profile",      icon: <ProfileIcon />,       link: "/profile" },
-  { name: "Logout", icon:<LogoutIcon/>, link:"/logout"}
-];
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [activeNav, setActiveNav] = useState<NavItem>("Home");
-  const [ongoingCount]            = useState(0);
-  const [totalApplicants]         = useState(0);
-  const chartTotal                = chartData.reduce((s, d) => s + d.applicants, 0);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const initial = user?.email.charAt(0).toUpperCase();
+  const initial = user?.email?.charAt(0).toUpperCase() ?? "U";
+  const currentDate = useMemo(
+    () => new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }),
+    []
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDashboardMetrics = async () => {
+      setLoading(true);
+      try {
+        const [jobResponse, appResponse] = await Promise.all([
+          jobService.getJobs({ page: 1, limit: 100 }),
+          applicationService.listApplications({ page: 1, limit: 200 }),
+        ]);
+        if (cancelled) return;
+        setJobs(jobResponse.items);
+        setApplications(appResponse);
+      } catch {
+        if (!cancelled) {
+          setJobs([]);
+          setApplications([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadDashboardMetrics();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const chartData = useMemo(() => buildMonthlyApplicants(applications), [applications]);
+  const ongoingCount = jobs.filter((job) => job.status === "active" || job.status === "paused").length;
+  const totalApplicants = jobs.reduce((sum, job) => sum + (job.applicationCount ?? 0), 0);
+  const chartTotal = chartData.reduce((sum, item) => sum + item.applicants, 0);
+  const hiringCompletion = jobs.length ? Math.round((jobs.filter((job) => job.status === "closed").length / jobs.length) * 100) : 0;
  
   return (
     <div style={{ display: "flex", height: "100vh", background: TEAL, fontFamily: "'DM Sans','Segoe UI',sans-serif", overflow: "hidden", borderRadius: 30 }}>
@@ -122,23 +150,7 @@ export default function Dashboard() {
         .details-btn:hover { background:#d0eeeb !important; }
       `}</style>
 
-      {/* ── SIDEBAR ── */}
-      <aside style={{ width: 220, flexShrink: 0, background: TEAL, display: "flex", flexDirection: "column", padding: "32px 0", color: "#fff", borderRadius: "30px 0 0 30px" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, padding: "0 24px 24px", marginBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.18)", letterSpacing: "-0.3px" }}>
-          H- <span style={{ fontWeight: 400, opacity: 0.7 }}>Hitamo AI</span>
-        </div>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", flex: 1 }}>
-          {NAV_ITEMS.map(({ name, icon,link }) => (
-            <button key={name} className="nav-btn" onClick={() => {setActiveNav(name); navigate(link)}} style={{
-              display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, cursor: "pointer",
-              background: activeNav === name ? "#fff" : "transparent",
-              color: activeNav === name ? TEAL_DARK : "rgba(255,255,255,0.82)",
-              fontWeight: activeNav === name ? 700 : 500, fontSize: 14,
-              border: "none", width: "100%", textAlign: "left", transition: "all 0.15s ease", fontFamily: "inherit",
-            }}>{icon}{name}</button>
-          ))}
-        </nav>
-      </aside>
+      <Sidebar />
 
       {/* ── MAIN ── */}
       <main style={{ flex: 1, background: "#f7f9f9", borderRadius: "0 30px 30px 0", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -147,7 +159,9 @@ export default function Dashboard() {
         <div style={{ background: "#fff", padding: "18px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #f0f0f0" }}>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 700, color: "#202124", margin: 0 }}>Dashboard</h1>
-            <p style={{ fontSize: 12, color: "#9aa0a6", margin: "2px 0 0" }}>Your hiring overview at a glance</p>
+            <p style={{ fontSize: 12, color: "#9aa0a6", margin: "2px 0 0" }}>
+              {loading ? "Refreshing metrics..." : `Your hiring overview at a glance · ${currentDate}`}
+            </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#f1f3f4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><SearchIcon /></div>
@@ -173,7 +187,7 @@ export default function Dashboard() {
               </div>
               <div style={{ fontSize: 52, fontWeight: 300, color: "#202124", lineHeight: 1, marginBottom: 10 }}>{ongoingCount}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9aa0a6", fontSize: 11, fontWeight: 500 }}>
-                <TrendFlatIcon /> No active processes yet
+                <TrendFlatIcon /> {loading ? "Loading processes..." : ongoingCount ? "Active hiring in progress" : "No active processes yet"}
               </div>
             </div>
 
@@ -231,7 +245,7 @@ export default function Dashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#c0c7cc", fontSize: 12, fontFamily: "'DM Sans',sans-serif" }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#c0c7cc", fontSize: 12 }} domain={[10, 35]} ticks={[10, 20, 30]} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#c0c7cc", fontSize: 12 }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: TEAL_BG, strokeWidth: 24 }} />
                   <Area type="monotone" dataKey="applicants" stroke={TEAL_MID} strokeWidth={2.5} fill="url(#tealGrad)" dot={false} activeDot={{ r: 6, fill: TEAL, stroke: "#fff", strokeWidth: 2.5 }} />
                 </AreaChart>
@@ -241,10 +255,12 @@ export default function Dashboard() {
             {/* Gauge */}
             <div className="scale-in" style={{ background: "#fff", borderRadius: 18, padding: "22px 20px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, minWidth: 196, animationDelay: "0.24s" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#202124", textAlign: "center" }}>Hiring Completion</div>
-              <Gauge value={0} max={100} />
+              <Gauge value={hiringCompletion} max={100} />
               <div style={{ width: "100%", background: "#f7f9f9", borderRadius: 10, padding: "10px 14px", textAlign: "center" }}>
                 <div style={{ fontSize: 11, color: "#9aa0a6", marginBottom: 2 }}>Current stage</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: TEAL_DARK }}>Not started</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: TEAL_DARK }}>
+                  {jobs.length ? `${jobs.filter((job) => job.status === "closed").length}/${jobs.length} closed` : "Not started"}
+                </div>
               </div>
               <button className="details-btn" style={{ background: TEAL_BG, color: TEAL_DARK, border: "none", borderRadius: 10, padding: "10px 0", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", fontFamily: "inherit", transition: "background 0.15s" }}>
                 View Details

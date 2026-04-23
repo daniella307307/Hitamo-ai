@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import Calendar from "../components/Calendar";
+import Sidebar from "../components/Sidebar";
+import { applicationService, type Application as ApiApplication } from "../service/application";
 // ── Types ──────────────────────────────────────────────────────────────
-interface Application {
+interface ApplicationCard {
   id: number;
   title: string;
   company?: string;
@@ -18,7 +20,7 @@ interface Task {
 }
 
 // ── Data ───────────────────────────────────────────────────────────────
-const applications: Application[] = [
+const fallbackApplications: ApplicationCard[] = [
   { id: 1, title: "Web developer", progress: 70, variant: "dark" },
   { id: 2, title: "Devops Engineer at Irembo", progress: 50, variant: "bright" },
   { id: 3, title: "Devops Engineer at Irembo", progress: 50, variant: "dark" },
@@ -36,29 +38,6 @@ const CAL_OFFSET = 5;
 const CAL_DAYS = 31;
 
 // ── Icons ──────────────────────────────────────────────────────────────
-const HomeIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <polyline points="9 22 9 12 15 12 15 22" />
-  </svg>
-);
-const BarIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-  </svg>
-);
-const BotIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="20" height="20" rx="5" />
-    <circle cx="9" cy="10" r="1.5" fill="currentColor" /><circle cx="15" cy="10" r="1.5" fill="currentColor" />
-    <path d="M8 15s1 2 4 2 4-2 4-2" />
-  </svg>
-);
-const UserIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-  </svg>
-);
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -83,30 +62,9 @@ const DotsIcon = () => (
   </div>
 );
 
-const LogoutIcon      = () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>;
 // ── Sub-components ─────────────────────────────────────────────────────
 
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 14,
-        padding: "12px 16px", borderRadius: 50,
-        color: active ? "#1a7a6e" : "rgba(255,255,255,0.72)",
-        background: active ? "white" : "transparent",
-        fontFamily: "inherit", fontSize: 15, fontWeight: active ? 600 : 500,
-        border: "none", cursor: "pointer", width: "100%",
-        marginBottom: 4, transition: "all 0.18s ease",
-      }}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-function AppCard({ app }: { app: Application }) {
+function AppCard({ app }: { app: ApplicationCard }) {
   const bg = app.variant === "bright" ? "#20b2a0" : "#1a7a6e";
   return (
     <div style={{
@@ -165,21 +123,50 @@ function TaskItem({ task, onToggle }: { task: Task; onToggle: () => void }) {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────
 export default function DashboardCandidate() {
-  const [activeNav, setActiveNav] = useState("Home");
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [applications, setApplications] = useState<ApiApplication[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const toggleTask = (id: number) =>
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
-  const navItems = [
-    { label: "Home", icon: <HomeIcon />, link: "/home" },
-    { label: "Analytics", icon: <BarIcon />,link:'/analytics' },
-    { label: "Hitamo AI", icon: <BotIcon />,link:'/hitamo-ai' },
-    { label: "Profile", icon: <UserIcon />,link:'/profile' },
-    { label:"Logout", icon:<LogoutIcon/> , link:"/logout"}
-  ];
   const {user} = useAuth();
-  const initial = user?.email.charAt(0).toUpperCase();
+  const initial = user?.email?.charAt(0).toUpperCase() ?? "U";
+  const name = user?.email?.split("@")[0] ?? "there";
+  const currentDate = useMemo(
+    () => new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+    []
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadApplications = async () => {
+      setLoading(true);
+      try {
+        const response = await applicationService.listApplications({ page: 1, limit: 50 });
+        if (!cancelled) setApplications(response);
+      } catch {
+        if (!cancelled) setApplications([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadApplications();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ongoingApplications = applications.filter((application) => application.status === "active");
+  const completedApplications = applications.filter((application) => application.status !== "active");
+  const applicationCards: ApplicationCard[] = (ongoingApplications.length ? ongoingApplications : []).slice(0, 3).map((application, index) => ({
+    id: index + 1,
+    title:
+      (typeof (application as any)?.jobId === "object" ? (application as any)?.jobId?.title : null) ??
+      `Application ${index + 1}`,
+    progress: application.currentStage?.toLowerCase() === "applied" ? 35 : 70,
+    variant: index % 2 === 0 ? "dark" : "bright",
+  }));
 
   return (
     <div style={{
@@ -199,22 +186,7 @@ export default function DashboardCandidate() {
         boxShadow: "0 24px 80px rgba(0,0,0,0.18)",
       }}>
 
-        {/* ── SIDEBAR ── */}
-        <aside style={{
-          width: 230, flexShrink: 0,
-          background: "#1a7a6e",
-          display: "flex", flexDirection: "column",
-          padding: "32px 20px",
-        }}>
-          <div style={{ color: "white", fontSize: 20, fontWeight: 700, letterSpacing: "-0.3px", marginBottom: 36, paddingLeft: 8 }}>
-            H- <span style={{ opacity: 0.7, fontWeight: 400 }}>Hitamo AI</span>
-          </div>
-          <nav>
-            {navItems.map(({ label, icon, link }) => (
-              <NavItem key={label} icon={icon} label={label} active={activeNav === label} onClick={() =>{ setActiveNav(label); navigation.navigate(link)}} />
-            ))}
-          </nav>
-        </aside>
+        <Sidebar width={230} />
 
         {/* ── MAIN ── */}
         <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#f7f9f9" }}>
@@ -226,8 +198,10 @@ export default function DashboardCandidate() {
             borderBottom: "1px solid #f1f3f4",
           }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 600, color: "#202124", margin: 0 }}>Hello Daniella</h2>
-              <p style={{ fontSize: 13, color: "#9aa0a6", marginTop: 1 }}>Today is Monday 20 March 2025</p>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: "#202124", margin: 0 }}>Hello {name}</h2>
+              <p style={{ fontSize: 13, color: "#9aa0a6", marginTop: 1 }}>
+                {loading ? "Loading your latest activity..." : `Today is ${currentDate}`}
+              </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               {/* Search */}
@@ -254,7 +228,7 @@ export default function DashboardCandidate() {
               <div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: "#202124", marginBottom: 12 }}>Ongoing application</div>
                 <div style={{ display: "flex", gap: 12 }}>
-                  {applications.map((app) => <AppCard key={app.id} app={app} />)}
+                  {(applicationCards.length ? applicationCards : fallbackApplications).map((app) => <AppCard key={app.id} app={app} />)}
                 </div>
               </div>
 
@@ -274,7 +248,7 @@ export default function DashboardCandidate() {
                     <a href="#" style={{ fontSize: 11, color: "#20b2a0", textDecoration: "underline" }}>View your probabilities of getting hired</a>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                    {[{ num: 2, label: "Ongoing\napplications" }, { num: 5, label: "Completed\nApplications" }].map(({ num, label }) => (
+                    {[{ num: ongoingApplications.length, label: "Ongoing\napplications" }, { num: completedApplications.length, label: "Completed\nApplications" }].map(({ num, label }) => (
                       <div key={label} style={{ background: "#f1f3f4", borderRadius: 8, padding: 14, textAlign: "center" }}>
                         <div style={{ fontSize: 28, fontWeight: 700, color: "#202124", lineHeight: 1 }}>{num}</div>
                         <div style={{ fontSize: 11, color: "#5f6368", marginTop: 4, lineHeight: 1.3, whiteSpace: "pre-line" }}>{label}</div>
